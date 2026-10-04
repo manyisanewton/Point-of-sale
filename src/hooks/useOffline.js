@@ -104,7 +104,8 @@ export function useOffline() {
   }, []);
 
   const deleteCustomerOffline = useCallback(async (customer) => {
-    const clientId = customer.clientId || `server_${customer.phone}`;
+    const normalizedPhone = String(customer.phone || '').replace(/[\s-]/g, '');
+    const clientId = customer.clientId || `server_${normalizedPhone}`;
     await enqueueSync('customer', clientId, 'delete', {
       name: customer.name,
       phone: customer.phone,

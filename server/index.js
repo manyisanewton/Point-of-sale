@@ -299,7 +299,13 @@ app.post('/api/sync', requireAdmin, async (req, res, next) => {
     }
 
     if (idempotencyKey) {
-      const existing = await bookingRepository.getBookingByToken(idempotencyKey);
+      // Order creates persist the outbox idempotencyKey as clientKey; a
+      // retried/offline-replayed create must return the original booking
+      // instead of inserting a second order. (Receipt tokens are random per
+      // booking, so they can never match an idempotency key.)
+      const existing = entityType === 'order' && action === 'create'
+        ? await bookingRepository.getBookingByClientKey(idempotencyKey)
+        : await bookingRepository.getBookingByToken(idempotencyKey);
       if (existing) {
         return res.json({ success: true, duplicate: true, externalId: existing.id });
       }
@@ -335,7 +341,7 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
     case 'create': {
       // Accept both offline-POS shape and booking shape
       const name = payload.name || payload.customerName || 'Walk-in';
-      const phone = payload.phone || payload.customerPhone || '0700000000';
+      const phone = String(payload.phone || payload.customerPhone || '0700000000').replace(/[\s-]/g, '');
       const location = payload.location || payload.pickupArea || '';
       const paymentMethod = payload.paymentMethod || payload.method || 'Cash';
       const mpesaPhone = payload.mpesaPhone || payload.mpesaNumber || null;
@@ -351,10 +357,32 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
             discountPercent: Number(it.discountPercent || 0),
           }))
         : [{ service, kg: Number(payload.quantity || 1) }];
-      const result = await bookingRepository.createBooking(
-        { name, phone, servedBy, service, location, paymentMethod, mpesaPhone, notes, allowDiscounts: true },
-        items
-      );
+      // Belt-and-braces: re-check inside the handler too (concurrent
+      // retries can pass the route-level check together).
+      if (idempotencyKey) {
+        const replayed = await bookingRepository.getBookingByClientKey(idempotencyKey);
+        if (replayed) {
+          return { success: true, duplicate: true, externalId: replayed.id, idempotencyKey };
+        }
+      }
+      let result;
+      try {
+        result = await bookingRepository.createBooking(
+          { name, phone, servedBy, service, location, paymentMethod, mpesaPhone, notes, allowDiscounts: true, clientKey: idempotencyKey },
+          items
+        );
+      } catch (error) {
+        // Lost race between concurrent retries: the other request won and
+        // persisted our key — return its booking instead of a duplicate.
+        const targets = error?.meta?.target || [];
+        if (error?.code === 'P2002' && targets.includes('clientKey') && idempotencyKey) {
+          const winner = await bookingRepository.getBookingByClientKey(idempotencyKey);
+          if (winner) {
+            return { success: true, duplicate: true, externalId: winner.id, idempotencyKey };
+          }
+        }
+        throw error;
+      }
       return { success: true, externalId: result.request.id, receiptNumber: result.receiptNumber, idempotencyKey: idempotencyKey || result.receiptToken };
     }
     case 'update': {
@@ -391,7 +419,7 @@ async function handleCustomerSync(entityId, action, payload, idempotencyKey = nu
     }
     case 'create': {
       const name = String(payload.name || '').trim().slice(0, 80);
-      const phone = String(payload.phone || '').trim().slice(0, 30);
+      const phone = String(payload.phone || '').replace(/[\s-]/g, '').trim().slice(0, 30);
       const gender = payload.gender ? String(payload.gender).toLowerCase() : null;
       if (!name || !phone) {
         return { success: false, error: 'Customer name and phone are required.' };

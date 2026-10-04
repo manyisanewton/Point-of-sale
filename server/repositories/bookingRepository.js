@@ -30,6 +30,10 @@ async function ensureBookingServedByColumn() {
   if (!names.has('paymentReference')) {
     await prisma.$executeRawUnsafe('ALTER TABLE "booking_requests" ADD COLUMN "paymentReference" TEXT');
   }
+  if (!names.has('clientKey')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "booking_requests" ADD COLUMN "clientKey" TEXT');
+  }
+  await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "booking_requests_clientKey_key" ON "booking_requests" ("clientKey")`;
 }
 
 async function attachItemDiscounts(request) {
@@ -168,7 +172,8 @@ export const bookingRepository = {
       });
       await tx.$executeRaw`
         UPDATE "booking_requests"
-        SET "servedBy" = ${bookingData.servedBy || null}
+        SET "servedBy" = ${bookingData.servedBy || null},
+            "clientKey" = ${bookingData.clientKey || null}
         WHERE "id" = ${request.id}
       `;
       
@@ -221,6 +226,17 @@ export const bookingRepository = {
     const enriched = await attachItemDiscounts(request);
     const { receiptToken, ...receipt } = enriched;
     return receipt;
+  },
+
+  // Get a booking request by client idempotency key (offline-sync dedupe)
+  async getBookingByClientKey(clientKey) {
+    if (!clientKey) return null;
+    await ensureBookingServedByColumn();
+    const [row] = await prisma.$queryRaw`
+      SELECT "id" FROM "booking_requests" WHERE "clientKey" = ${clientKey} LIMIT 1
+    `;
+    if (!row) return null;
+    return this.getBookingById(row.id);
   },
 
   // Get a booking request by ID (admin)

@@ -23,12 +23,16 @@ async function ensureCustomerTable() {
   await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "customers_phone_idx" ON "customers" ("phone")`;
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/[\s-]/g, '').trim();
+}
+
 export const customerRepository = {
   async upsertCustomer(clientId, data) {
     await ensureCustomerTable();
     const customerData = {
       name: data.name,
-      phone: data.phone,
+      phone: normalizePhone(data.phone),
       email: data.email || null,
       servedBy: data.servedBy || null,
       gender: data.gender || null,
@@ -57,23 +61,43 @@ export const customerRepository = {
 
   async getAllCustomers() {
     await ensureCustomerTable();
+    // Backfill one directory entry per booking phone, matching on the
+    // normalized phone (spaces/dashes ignored) so a manual entry and its
+    // bookings never produce a second row for the same user.
     await prisma.$executeRaw`
       INSERT INTO "customers" ("id", "clientId", "name", "phone", "email", "servedBy", "gender", "createdAt", "updatedAt", "deletedAt")
-      SELECT lower(hex(randomblob(16))), 'server_' || booking."phone", booking."name", booking."phone", NULL, NULL, NULL, booking."createdAt", booking."updatedAt", NULL
+      SELECT lower(hex(randomblob(16))), 'server_' || REPLACE(REPLACE(TRIM(booking."phone"), ' ', ''), '-', ''), booking."name", REPLACE(REPLACE(TRIM(booking."phone"), ' ', ''), '-', ''), NULL, NULL, NULL, booking."createdAt", booking."updatedAt", NULL
       FROM "booking_requests" AS booking
       WHERE TRIM(booking."phone") <> ''
         AND booking."id" = (
           SELECT latest."id"
           FROM "booking_requests" AS latest
-          WHERE latest."phone" = booking."phone"
+          WHERE REPLACE(REPLACE(TRIM(latest."phone"), ' ', ''), '-', '') = REPLACE(REPLACE(TRIM(booking."phone"), ' ', ''), '-', '')
           ORDER BY latest."createdAt" DESC, latest."id" DESC
           LIMIT 1
         )
         AND NOT EXISTS (
           SELECT 1 FROM "customers" AS existing
-          WHERE existing."phone" = booking."phone"
+          WHERE REPLACE(REPLACE(TRIM(existing."phone"), ' ', ''), '-', '') = REPLACE(REPLACE(TRIM(booking."phone"), ' ', ''), '-', '')
         )
       ON CONFLICT("clientId") DO NOTHING
+    `;
+    // Merge legacy duplicates: one row per normalized phone, preferring a
+    // manually created entry over an auto-derived server_ row.
+    await prisma.$executeRaw`
+      DELETE FROM "customers" AS doomed
+      WHERE EXISTS (
+        SELECT 1 FROM "customers" AS keeper
+        WHERE REPLACE(REPLACE(TRIM(keeper."phone"), ' ', ''), '-', '') = REPLACE(REPLACE(TRIM(doomed."phone"), ' ', ''), '-', '')
+          AND (
+            keeper."createdAt" < doomed."createdAt"
+            OR (keeper."createdAt" = doomed."createdAt" AND keeper."id" < doomed."id")
+          )
+          AND (
+            keeper."clientId" NOT LIKE 'server\_%' ESCAPE '\'
+            OR doomed."clientId" LIKE 'server\_%' ESCAPE '\'
+          )
+      )
     `;
     return prisma.$queryRaw`
       SELECT "id", "clientId", "name", "phone", "email", "servedBy", "gender", "createdAt", "updatedAt"

@@ -338,6 +338,12 @@ export async function upsertServerOrders(serverRequests) {
     if (!req || !req.id) continue;
     const clientId = `server_${req.id}`;
     const existing = await db.orders.where('clientId').equals(clientId).first();
+    // Reconcile: this device may already hold this booking as the local row
+    // created at sale time (patched with externalId on sync ack). Updating
+    // that row in place — instead of adding a second server_ mirror — is
+    // what keeps each order visible exactly once.
+    const localRow = existing
+      || await db.orders.where('externalId').equals(req.id).first();
     const row = {
       clientId,
       externalId: req.id,
@@ -375,28 +381,74 @@ export async function upsertServerOrders(serverRequests) {
       updatedAt: now,
       lastSyncedAt: now,
     };
-    if (existing) {
-      await db.orders.update(existing.id, row);
+    if (localRow) {
+      // Keep the row's original clientId so the sale-time row and the
+      // server mirror never coexist as two visible orders.
+      const { clientId: _ignored, ...patch } = row;
+      await db.orders.update(localRow.id, { ...patch, externalId: req.id });
+      // Drop a stray server_ mirror if the reconciled row is the local one.
+      if (existing && existing.id !== localRow.id) {
+        await db.orders.delete(existing.id);
+      }
     } else {
       await db.orders.add(row);
     }
     mirrored += 1;
   }
+  // Sweep: no two rows may claim the same server booking. Prefer the
+  // sale-time local row; drop redundant server_ mirrors.
+  const allOrders = await db.orders.toArray();
+  const seenExternal = new Map();
+  for (const order of allOrders) {
+    if (!order.externalId) continue;
+    if (!seenExternal.has(order.externalId)) {
+      seenExternal.set(order.externalId, order);
+    } else {
+      const keeper = seenExternal.get(order.externalId);
+      const keeperIsMirror = String(keeper.clientId || '').startsWith('server_');
+      const orderIsMirror = String(order.clientId || '').startsWith('server_');
+      const keepLocal = (keeperIsMirror && !orderIsMirror) ? order : keeper;
+      const dropRow = keepLocal === keeper ? order : keeper;
+      seenExternal.set(order.externalId, keepLocal);
+      await db.orders.delete(dropRow.id);
+    }
+  }
   return { mirrored };
 }
 
-/** Mirror server-known customers (by phone) without touching pending locals. */
+/** Mirror server-known customers (by normalized phone) without touching pending locals. */
 export async function upsertServerCustomers(serverRequests) {
   const now = new Date().toISOString();
+  const normalizePhone = (value) => String(value || '').replace(/[\s-]/g, '');
   let mirrored = 0;
   const serverRows = (serverRequests || []).filter((req) => req?.phone);
   const serverIds = new Set(serverRows.map((req) => req.id).filter(Boolean));
+  // Collapse pre-existing local duplicates first so the same user can only
+  // ever appear once, regardless of phone formatting ("0712 345 678" vs
+  // "0712345678").
+  const locals = await db.customers.toArray();
+  const seenPhones = new Map();
+  for (const local of locals) {
+    const key = normalizePhone(local.phone);
+    if (!key) continue;
+    if (!seenPhones.has(key)) {
+      seenPhones.set(key, local);
+    } else {
+      const keeper = seenPhones.get(key);
+      // Prefer the pending (unsynced) row; otherwise keep the earliest.
+      const keepLocal = local.syncStatus === 'pending' && keeper.syncStatus !== 'pending' ? local : keeper;
+      const dropLocal = keepLocal === local ? keeper : local;
+      seenPhones.set(key, keepLocal);
+      await db.customers.delete(dropLocal.id);
+    }
+  }
   for (const req of serverRows) {
+    const normalizedPhone = normalizePhone(req.phone);
     const customer = {
-      clientId: req.clientId || `server_${req.phone}`,
+      clientId: req.clientId || `server_${normalizedPhone}`,
       externalId: req.id || null,
       name: req.name || 'Walk-in',
-      phone: req.phone,
+      phone: normalizedPhone,
       email: req.email || '',
       address: req.location || req.address || '',
       servedBy: req.servedBy || '',
@@ -406,7 +458,7 @@ export async function upsertServerCustomers(serverRequests) {
       updatedAt: req.updatedAt || now,
       lastSyncedAt: now,
     };
-    const existing = await db.customers.where('phone').equals(req.phone).first();
+    const existing = (await db.customers.toArray()).find((c) => normalizePhone(c.phone) === normalizedPhone);
     if (existing?.syncStatus === 'pending') continue;
     if (existing) {
       await db.customers.update(existing.id, { ...customer, clientId: existing.clientId });

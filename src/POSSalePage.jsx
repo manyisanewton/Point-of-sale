@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Search, Download, Printer, CheckCircle, AlertCircle, Receipt as ReceiptIcon, Settings2 } from 'lucide-react';
 import { useOffline, useOfflineCustomers } from './hooks/useOffline.js';
@@ -44,6 +44,9 @@ export default function POSSalePage() {
   const [busy, setBusy] = useState(false);
   const [completed, setCompleted] = useState(null);
   const [printBlocked, setPrintBlocked] = useState(false);
+  // Ref guard: state updates are async, so a rapid double-click could fire
+  // handleComplete twice (two orders) before `busy` disables the button.
+  const submittingRef = useRef(false);
 
   const offline = !isOnline || backendDown;
 
@@ -73,6 +76,8 @@ export default function POSSalePage() {
   }
 
   async function handleComplete() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError('');
     setPrintBlocked(false);
     if (cart.length === 0) {
@@ -97,7 +102,10 @@ export default function POSSalePage() {
     setBusy(true);
     try {
       // Grow the local customer cache (separate queued operation).
-      const known = customers.some((c) => c.phone === phone);
+      // Compare normalized phones so "0712 345 678" and "0712345678"
+      // resolve to the same user instead of creating a duplicate.
+      const normalizePhone = (value) => String(value || '').replace(/[\s-]/g, '');
+      const known = customers.some((c) => normalizePhone(c.phone) === phone);
       if (!known) {
         try {
           await createCustomerOffline({ name, phone, servedBy: attendant });
@@ -178,6 +186,7 @@ export default function POSSalePage() {
       setCart([]);
     } catch {
       setError('Could not save this sale on the device. Nothing was lost from your cart — please try again.');
+      submittingRef.current = false;
     } finally {
       setBusy(false);
     }
@@ -244,6 +253,7 @@ export default function POSSalePage() {
               className="btn-secondary"
               onClick={() => {
                 setCompleted(null);
+                submittingRef.current = false;
                 setCustomerName('');
                 setCustomerPhone('');
                 setServedBy('');
