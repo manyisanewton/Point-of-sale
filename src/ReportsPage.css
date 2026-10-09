@@ -103,8 +103,12 @@
 .rpt-amount-toggle:focus-visible { outline: 2px solid #2f80ed; outline-offset: 2px; }
 .rpt-pin-dialog { width: min(100%, 420px); }
 .rpt-pin-field { display: grid; gap: 7px; margin-top: 16px; color: var(--ink); font-size: 14px; font-weight: 700; }
-.rpt-pin-field input { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card-bg); color: var(--ink); font: inherit; }
+.rpt-pin-input-wrap { position: relative; display: block; }
+.rpt-pin-field input { width: 100%; min-height: 44px; padding: 9px 44px 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card-bg); color: var(--ink); font: inherit; }
 .rpt-pin-field input:focus-visible { outline: 2px solid #2f80ed; outline-offset: 2px; }
+.rpt-pin-visibility-toggle { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; transform: translateY(-50%); border: 0; border-radius: 5px; background: transparent; color: #526275; cursor: pointer; }
+.rpt-pin-visibility-toggle:hover { background: #eff6ff; color: #174f91; }
+.rpt-pin-visibility-toggle:focus-visible { outline: 2px solid #2f80ed; outline-offset: 1px; }
 .rpt-pin-error { margin: 10px 0 0; color: #b42318 !important; font-size: 13px; }
 
 /* Transactions */

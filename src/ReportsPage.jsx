@@ -90,6 +90,7 @@ export default function ReportsPage() {
   const { amountsHidden, showAmounts, hideAmounts } = useAmountVisibility();
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [reportPin, setReportPin] = useState('');
+  const [reportPinVisible, setReportPinVisible] = useState(false);
   const [pinError, setPinError] = useState('');
   const [verifyingPin, setVerifyingPin] = useState(false);
 
@@ -199,6 +200,7 @@ export default function ReportsPage() {
       return;
     }
     setReportPin('');
+    setReportPinVisible(false);
     setPinError('');
     setPinPromptOpen(true);
   }
@@ -396,16 +398,27 @@ export default function ReportsPage() {
             <p>Enter your report PIN to reveal Amount Made, Total Collected, and Today’s revenue. If no report PIN is configured, use your admin password.</p>
             <form onSubmit={verifyReportPin}>
               <label className="rpt-pin-field" htmlFor="rpt-amount-pin">Report PIN
-                <input
-                  id="rpt-amount-pin"
-                  type="password"
-                  autoComplete="current-password"
-                  autoFocus
-                  maxLength={128}
-                  value={reportPin}
-                  onChange={(event) => setReportPin(event.target.value)}
-                  aria-describedby={pinError ? 'rpt-pin-error' : undefined}
-                />
+                <span className="rpt-pin-input-wrap">
+                  <input
+                    id="rpt-amount-pin"
+                    type={reportPinVisible ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    autoFocus
+                    maxLength={128}
+                    value={reportPin}
+                    onChange={(event) => setReportPin(event.target.value)}
+                    aria-describedby={pinError ? 'rpt-pin-error' : undefined}
+                  />
+                  <button
+                    type="button"
+                    className="rpt-pin-visibility-toggle"
+                    onClick={() => setReportPinVisible((visible) => !visible)}
+                    aria-label={reportPinVisible ? 'Hide PIN' : 'Show PIN'}
+                    title={reportPinVisible ? 'Hide PIN' : 'Show PIN'}
+                  >
+                    {reportPinVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </span>
               </label>
               {pinError && <p id="rpt-pin-error" className="rpt-pin-error" role="alert">{pinError}</p>}
               <div className="booking-dialog-actions">
