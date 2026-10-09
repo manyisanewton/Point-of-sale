@@ -36,8 +36,20 @@ const bookingLimiter = rateLimit({
   skip: (req) => process.env.NODE_ENV !== 'production',
 });
 
+// Limit customer-wide WhatsApp campaigns so a repeated click cannot fan out
+// the same message multiple times in production.
+const whatsappBroadcastLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 2,
+  message: { error: 'Too many WhatsApp campaigns. Please wait before sending another.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production',
+});
+
 export {
   adminLoginLimiter,
   apiLimiter,
   bookingLimiter,
+  whatsappBroadcastLimiter,
 };

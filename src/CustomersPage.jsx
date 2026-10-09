@@ -7,6 +7,7 @@ import {
   Plus,
   Trash2,
   X,
+  MessageCircle,
 } from 'lucide-react';
 import { useOffline, useOfflineCustomers } from './hooks/useOffline.js';
 import { upsertServerCustomers } from './lib/db.js';
@@ -25,6 +26,14 @@ function normalizePhone(value) {
   return digits;
 }
 
+function whatsappPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('254') && digits.length === 12) return digits;
+  if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`;
+  if (digits.length === 9) return `254${digits}`;
+  return digits.length >= 10 && digits.length <= 15 ? digits : '';
+}
+
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { customers, loading, refresh } = useOfflineCustomers();
@@ -38,6 +47,14 @@ export default function CustomersPage() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [notice, setNotice] = useState('');
   const [deletingCustomerId, setDeletingCustomerId] = useState(null);
+  const [showWhatsAppComposer, setShowWhatsAppComposer] = useState(false);
+  const [outreachStaff, setOutreachStaff] = useState('');
+  const [outreachAllCustomers, setOutreachAllCustomers] = useState(false);
+  const [outreachMessage, setOutreachMessage] = useState('');
+  const [confirmedOutreachOptIn, setConfirmedOutreachOptIn] = useState(false);
+  const [sendingOutreach, setSendingOutreach] = useState(false);
+  const [outreachError, setOutreachError] = useState('');
+  const [outreachResult, setOutreachResult] = useState(null);
 
   // Local-first: Dexie renders immediately; server refreshes the mirror
   // when online (by phone, without touching pending local rows).
@@ -153,6 +170,38 @@ export default function CustomersPage() {
           (c.email || '').toLowerCase().includes(search.toLowerCase())
       )
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  const staffNames = [...new Set(customers.map((customer) => String(customer.servedBy || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+  const outreachRecipients = [...new Map(customers
+    .filter((customer) => outreachAllCustomers || (outreachStaff && String(customer.servedBy || '').trim() === outreachStaff))
+    .map((customer) => [whatsappPhone(customer.phone), { ...customer, whatsappPhone: whatsappPhone(customer.phone) }])
+    .filter(([phone]) => Boolean(phone))).values()];
+
+  async function sendWhatsAppCampaign() {
+    if ((!outreachAllCustomers && !outreachStaff) || !outreachMessage.trim() || !confirmedOutreachOptIn || outreachRecipients.length === 0) return;
+    setSendingOutreach(true);
+    setOutreachError('');
+    setOutreachResult(null);
+    try {
+      const response = await fetch('/api/admin/whatsapp-campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servedBy: outreachStaff,
+          allCustomers: outreachAllCustomers,
+          message: outreachMessage.trim(),
+          confirmedOptIn: confirmedOutreachOptIn,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not send the WhatsApp campaign.');
+      setOutreachResult(result);
+    } catch (error) {
+      setOutreachError(error.message || 'Could not send the WhatsApp campaign.');
+    } finally {
+      setSendingOutreach(false);
+    }
+  }
 
   if (loading) return <div className="pos-page"><h2>Customers</h2><p>Loading customers…</p></div>;
 
@@ -176,6 +225,9 @@ export default function CustomersPage() {
           </div>
           <button className="customer-create-button" onClick={() => setShowCreateForm(true)}>
             <UserPlus size={17} /> Create Customer
+          </button>
+          <button className="customer-whatsapp-button" type="button" onClick={() => setShowWhatsAppComposer(true)}>
+            <MessageCircle size={17} /> WhatsApp customers
           </button>
         </div>
       </header>
@@ -249,6 +301,135 @@ export default function CustomersPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {showWhatsAppComposer && (
+        <div className="customer-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setShowWhatsAppComposer(false);
+        }}>
+          <section className="customer-modal customer-whatsapp-modal" role="dialog" aria-modal="true" aria-labelledby="customer-whatsapp-title">
+            <header className="customer-modal-header">
+              <div>
+                <p className="eyebrow">Customer outreach</p>
+                <h3 id="customer-whatsapp-title">WhatsApp customers</h3>
+              </div>
+              <button className="customer-modal-close" type="button" onClick={() => setShowWhatsAppComposer(false)} aria-label="Close WhatsApp outreach">
+                <X size={19} />
+              </button>
+            </header>
+            <div className="customer-whatsapp-compose">
+              <div className="customer-whatsapp-mode" role="group" aria-label="Choose WhatsApp recipients">
+                <button
+                  className={!outreachAllCustomers ? 'active' : ''}
+                  type="button"
+                  aria-pressed={!outreachAllCustomers}
+                  disabled={sendingOutreach}
+                  onClick={() => {
+                    setOutreachAllCustomers(false);
+                    setOutreachResult(null);
+                    setConfirmedOutreachOptIn(false);
+                  }}
+                >By staff member</button>
+                <button
+                  className={outreachAllCustomers ? 'active' : ''}
+                  type="button"
+                  aria-pressed={outreachAllCustomers}
+                  disabled={sendingOutreach}
+                  onClick={() => {
+                    setOutreachAllCustomers(true);
+                    setOutreachStaff('');
+                    setOutreachResult(null);
+                    setConfirmedOutreachOptIn(false);
+                  }}
+                >All customers</button>
+              </div>
+              {outreachAllCustomers ? (
+                <p className="customer-whatsapp-all-note">The Served By filter is off. All customers with a valid phone number are included.</p>
+              ) : (
+                <label className="customer-form-field">
+                  Served by
+                  <select value={outreachStaff} onChange={(event) => {
+                    setOutreachStaff(event.target.value);
+                    setOutreachResult(null);
+                    setConfirmedOutreachOptIn(false);
+                  }} required disabled={sendingOutreach}>
+                    <option value="">Choose your name</option>
+                    {staffNames.map((staff) => <option key={staff} value={staff}>{staff}</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="customer-form-field">
+                Message
+                <textarea
+                  rows={4}
+                  value={outreachMessage}
+                  onChange={(event) => { setOutreachMessage(event.target.value); setOutreachResult(null); }}
+                  placeholder="Write the message to send to these customers…"
+                  maxLength={1024}
+                  required
+                  disabled={sendingOutreach}
+                />
+              </label>
+            </div>
+            <div className="customer-whatsapp-recipients">
+              <b>Recipients ({outreachRecipients.length})</b>
+              {!outreachAllCustomers && !outreachStaff ? (
+                <p>Choose the staff name recorded under Served By to see their customers.</p>
+              ) : outreachRecipients.length === 0 ? (
+                <p>{outreachAllCustomers ? 'No customers with a valid phone number were found.' : `No customers with a valid phone number were found for ${outreachStaff}.`}</p>
+              ) : (
+                <ul>
+                  {outreachRecipients.map((customer) => (
+                    <li key={customer.whatsappPhone}>
+                      <span><b>{customer.name || 'Customer'}</b><small>{customer.phone}</small></span>
+                      <span className="customer-whatsapp-status">
+                        {outreachResult?.results?.find((result) => result.phone === customer.whatsappPhone)
+                          ? outreachResult.results.find((result) => result.phone === customer.whatsappPhone).accepted
+                            ? 'Accepted for delivery'
+                            : 'Failed'
+                          : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <label className="customer-whatsapp-consent">
+              <input
+                type="checkbox"
+                checked={confirmedOutreachOptIn}
+                onChange={(event) => setConfirmedOutreachOptIn(event.target.checked)}
+                disabled={sendingOutreach || Boolean(outreachResult)}
+              />
+              I confirm these customers agreed to receive WhatsApp messages.
+            </label>
+            {outreachError && <p className="customer-whatsapp-error" role="alert">{outreachError}</p>}
+            {outreachResult && (
+              <p className="customer-whatsapp-result" role="status">
+                WhatsApp accepted {outreachResult.accepted} of {outreachResult.total} messages for delivery. {outreachResult.failed > 0 && `${outreachResult.failed} failed.`}
+              </p>
+            )}
+            <div className="customer-modal-actions">
+              <button className="customer-cancel-button" type="button" onClick={() => setShowWhatsAppComposer(false)}>Close</button>
+              {outreachResult && (
+                <button className="customer-cancel-button" type="button" onClick={() => {
+                  setOutreachMessage('');
+                  setConfirmedOutreachOptIn(false);
+                  setOutreachResult(null);
+                  setOutreachError('');
+                }}>New campaign</button>
+              )}
+              <button
+                className="customer-whatsapp-button"
+                type="button"
+                onClick={sendWhatsAppCampaign}
+                disabled={sendingOutreach || (!outreachAllCustomers && !outreachStaff) || !outreachMessage.trim() || !confirmedOutreachOptIn || outreachRecipients.length === 0 || Boolean(outreachResult)}
+              >
+                <MessageCircle size={17} />
+                {sendingOutreach ? 'Sending…' : outreachResult ? 'Campaign submitted' : `Send to ${outreachRecipients.length} customers`}
+              </button>
+            </div>
+          </section>
         </div>
       )}
       {showCreateForm && (

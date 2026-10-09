@@ -13,7 +13,7 @@ import { pricingRepository } from './repositories/pricingRepository.js';
 import { bookingRepository } from './repositories/bookingRepository.js';
 import { customerRepository } from './repositories/customerRepository.js';
 import { requireAdmin, getOptionalSession, createSessionCookie, createLogoutCookie } from './middleware/sessionMiddleware.js';
-import { adminLoginLimiter, bookingLimiter } from './middleware/rateLimitMiddleware.js';
+import { adminLoginLimiter, bookingLimiter, whatsappBroadcastLimiter } from './middleware/rateLimitMiddleware.js';
 import { applySecurityHeaders, corsMiddleware } from './middleware/securityHeadersMiddleware.js';
 import { validateBookingRequest, validateAdminLogin, validateProcessSteps, validatePricingUpdate, validateStatusUpdate } from './middleware/validationMiddleware.js';
 
@@ -178,6 +178,92 @@ app.post('/api/admin/verify-amount-pin', requireAdmin, adminLoginLimiter, async 
 
     if (!verified) return res.status(401).json({ error: 'Incorrect PIN. Try again.' });
     res.json({ verified: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function whatsappE164(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('254') && digits.length === 12) return digits;
+  if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`;
+  if (digits.length === 9) return `254${digits}`;
+  return digits.length >= 10 && digits.length <= 15 ? digits : '';
+}
+
+// Send one approved WhatsApp template campaign to a staff member's customers or all customers.
+app.post('/api/admin/whatsapp-campaign', requireAdmin, whatsappBroadcastLimiter, async (req, res, next) => {
+  try {
+    const servedBy = String(req.body?.servedBy || '').trim();
+    const allCustomers = req.body?.allCustomers === true;
+    const message = String(req.body?.message || '').trim();
+    if ((!allCustomers && !servedBy) || servedBy.length > 80) return res.status(400).json({ error: 'Choose a staff member or all customers.' });
+    if (!message || message.length > 1024) return res.status(400).json({ error: 'Enter a message of up to 1,024 characters.' });
+    if (req.body?.confirmedOptIn !== true) return res.status(400).json({ error: 'Confirm that these customers agreed to receive WhatsApp messages.' });
+
+    const requiredConfig = ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_BROADCAST_TEMPLATE'];
+    const missingConfig = requiredConfig.filter((key) => !process.env[key]);
+    if (missingConfig.length) {
+      return res.status(503).json({ error: 'WhatsApp Business sending is not configured on the server yet.' });
+    }
+
+    const customers = await customerRepository.getAllCustomers();
+    const recipientsByPhone = new Map();
+    for (const customer of customers) {
+      if (!allCustomers && String(customer.servedBy || '').trim() !== servedBy) continue;
+      const phone = whatsappE164(customer.phone);
+      if (phone && !recipientsByPhone.has(phone)) recipientsByPhone.set(phone, customer);
+    }
+    const recipients = [...recipientsByPhone.entries()];
+    if (!recipients.length) return res.status(400).json({ error: allCustomers
+      ? 'No customers with valid phone numbers were found.'
+      : `No customers with valid phone numbers were found for ${servedBy}.` });
+
+    const apiVersion = process.env.WHATSAPP_API_VERSION || 'v24.0';
+    const language = process.env.WHATSAPP_BROADCAST_LANGUAGE || 'en';
+    const results = [];
+    for (const [phone, customer] of recipients) {
+      try {
+        const response = await fetch(`https://graph.facebook.com/${apiVersion}/${encodeURIComponent(process.env.WHATSAPP_PHONE_NUMBER_ID)}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: phone,
+            type: 'template',
+            template: {
+              name: process.env.WHATSAPP_BROADCAST_TEMPLATE,
+              language: { code: language },
+              components: [{
+                type: 'body',
+                parameters: [{ type: 'text', text: message }],
+              }],
+            },
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const result = await response.json().catch(() => ({}));
+        results.push({
+          name: customer.name || 'Customer',
+          phone,
+          accepted: response.ok,
+          error: response.ok ? undefined : result.error?.message || 'WhatsApp rejected this message.',
+        });
+      } catch {
+        results.push({ name: customer.name || 'Customer', phone, accepted: false, error: 'Could not reach WhatsApp.' });
+      }
+    }
+
+    res.json({
+      total: results.length,
+      accepted: results.filter((result) => result.accepted).length,
+      failed: results.filter((result) => !result.accepted).length,
+      results,
+    });
   } catch (error) {
     next(error);
   }
