@@ -306,6 +306,7 @@ export function buildSubContractReceiptHTML(booking = {}) {
     timeZone: 'Africa/Nairobi',
     hour12: false,
   });
+  const stampDate = new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' });
   const items = selectedItems.map((item) => `
     <div class="item">
       <div>Service: <b>${escapeHtml(item.service || item.name || 'Laundry item')}</b></div>
@@ -322,6 +323,11 @@ export function buildSubContractReceiptHTML(booking = {}) {
     .details { line-height: 1.6; border-bottom: 1px dashed #555; padding-bottom: 8px; }
     .item { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px dashed #999; }
     .item div { line-height: 1.45; }
+    .stamp { display: grid; place-content: center; justify-items: center; box-sizing: border-box; width: 44mm; min-height: 21mm; margin: 9px auto 0; padding: 2mm; border: 1.2mm solid #174f91; border-radius: 1mm; color: #174f91; text-align: center; line-height: 1.2; font-family: Arial, sans-serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .stamp-top { font-size: 7px; font-weight: bold; letter-spacing: .1em; }
+    .stamp b { font-size: 12px; letter-spacing: .06em; }
+    .stamp-bottom { font-size: 7px; font-weight: bold; letter-spacing: .07em; }
+    .stamp small { margin-top: 2px; padding-top: 1px; border-top: 1px solid #174f91; font-size: 7px; }
   </style></head><body>
     <h1>OPEN DOORS LAUNDROMAT</h1>
     <h2>SUB CONTRACT RECEIPT</h2>
@@ -331,6 +337,12 @@ export function buildSubContractReceiptHTML(booking = {}) {
       <div>Customer: ${escapeHtml(booking.name || booking.customerName || 'Walk-in')}</div>
     </div>
     ${items || '<p>No items selected.</p>'}
+    <div class="stamp" aria-label="Open Doors official statement copy">
+      <span class="stamp-top">OPEN DOORS</span>
+      <b>LAUNDROMAT</b>
+      <span class="stamp-bottom">OFFICIAL COPY</span>
+      <small>${escapeHtml(stampDate)}</small>
+    </div>
   </body></html>`;
 }
 
