@@ -241,3 +241,4 @@ Before publishing, the business owner should confirm that prices, hours, service
 
 ## License and content
 The source code is provided for the Open Doors Laundromat project. The company name, logo, photography, written content, and other brand materials remain the property of their respective owner and should not be reused without permission.
+# Point-of-sale
