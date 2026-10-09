@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import './ReportsPage.css';
+import { useAmountVisibility } from './hooks/useAmountVisibility.js';
 
 function toLocalISODate(d) {
   const y = d.getFullYear();
@@ -86,7 +87,7 @@ export default function ReportsPage() {
   const [dateWarning, setDateWarning] = useState('');
   const [businessInfo, setBusinessInfo] = useState(null);
   const [printedAt] = useState(() => new Date());
-  const [amountsHidden, setAmountsHidden] = useState(true);
+  const { amountsHidden, toggleAmounts } = useAmountVisibility();
 
   useEffect(() => {
     let cancelled = false;
@@ -272,7 +273,7 @@ export default function ReportsPage() {
               <button
                 type="button"
                 className="rpt-amount-toggle"
-                onClick={() => setAmountsHidden((hidden) => !hidden)}
+                onClick={toggleAmounts}
                 aria-label={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
                 aria-pressed={amountsHidden}
                 title={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
@@ -314,7 +315,7 @@ export default function ReportsPage() {
                   <td className="rpt-contact">{t.contact}</td>
                   <td>{t.servedBy}</td>
                   <td><StatusPill status={t.status} /></td>
-                  <td className="num">{displayAmount(t.amount)}</td>
+                  <td className="num">KSh {t.amount.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -337,7 +338,7 @@ export default function ReportsPage() {
               </ul>
               <footer>
                 <span>{t.contact} · {t.servedBy}</span>
-                <b>{displayAmount(t.amount)}</b>
+                <b>KSh {t.amount.toLocaleString()}</b>
               </footer>
             </section>
           ))}
@@ -345,7 +346,7 @@ export default function ReportsPage() {
 
         <div className="rpt-foot">
           <span>Showing {filtered.length} record{filtered.length === 1 ? '' : 's'} from {rangeLabel}</span>
-          <span className="rpt-total">Total Amount Made: <b>{displayAmount(amountMade)}</b></span>
+          <span className="rpt-total">Total Amount Made: <b>KSh {amountMade.toLocaleString()}</b></span>
         </div>
       </div>
     </div>

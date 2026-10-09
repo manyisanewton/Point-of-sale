@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import './ReportsPage.css';
+import { useAmountVisibility } from './hooks/useAmountVisibility.js';
 
 function normalizePriceGroups(groups = []) {
   return groups.map((group) => ({
@@ -26,6 +27,7 @@ function normalizePriceGroups(groups = []) {
 }
 
 export default function AdminDashboard() {
+  const { amountsHidden } = useAmountVisibility();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
@@ -252,7 +254,11 @@ export default function AdminDashboard() {
             <section className="stat-grid">
               <article className="stat-card stat-card-blue">
                 <span className="stat-icon"><Banknote size={22} /></span>
-                <div><span>Today's revenue</span><b>KSh {todayRevenue.toLocaleString()}</b><small>{data.stats.today} orders today</small></div>
+                <div>
+                  <span>Today's revenue</span>
+                  <b>{amountsHidden ? '••••••' : `KSh ${todayRevenue.toLocaleString()}`}</b>
+                  <small>{data.stats.today} orders today</small>
+                </div>
               </article>
               <article className="stat-card stat-card-amber">
                 <span className="stat-icon"><Clock3 size={22} /></span>

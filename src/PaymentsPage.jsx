@@ -18,6 +18,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import './PaymentsPage.css';
+import { useAmountVisibility } from './hooks/useAmountVisibility.js';
 
 function normalizeMethod(raw) {
   const v = String(raw || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
@@ -120,6 +121,7 @@ function PaymentStatusBadge({ status }) {
 }
 
 export default function PaymentsPage() {
+  const { amountsHidden } = useAmountVisibility();
   const navigate = useNavigate();
   const [lines, setLines] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -346,7 +348,7 @@ export default function PaymentsPage() {
       <div className="payrep-kpis">
         <div className="payrep-kpi">
           <span className="payrep-kpi-icon green"><Coins size={24} /></span>
-          <div><small>Total Collected</small><b>KES {totalCollected.toLocaleString()}</b><span className="payrep-delta"><i>↑</i> 12% <em>vs. last period</em></span></div>
+          <div><small>Total Collected</small><b>{amountsHidden ? '••••••' : `KES ${totalCollected.toLocaleString()}`}</b><span className="payrep-delta"><i>↑</i> 12% <em>vs. last period</em></span></div>
         </div>
         <div className="payrep-kpi">
           <span className="payrep-kpi-icon blue"><Clock size={24} /></span>
