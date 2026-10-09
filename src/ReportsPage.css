@@ -75,22 +75,23 @@
 }
 
 /* KPI cards */
-.rpt-kpis { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 18px; width: 100%; }
+.rpt-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; width: 100%; }
 .rpt-kpi {
   background: #fff; border: 1px solid var(--line); border-radius: 10px;
-  padding: 18px; display: flex; gap: 14px; align-items: center;
+  padding: 16px; display: flex; gap: 14px; align-items: flex-start;
   min-width: 0;
 }
 .rpt-kpi-icon {
-  width: 56px; height: 56px; border-radius: 50%; flex: none;
+  width: 52px; height: 52px; border-radius: 12px; flex: none;
   display: grid; place-items: center; color: #fff;
 }
 .rpt-kpi-icon.blue { background: #2f80ed; }
 .rpt-kpi-icon.green { background: var(--green); }
 .rpt-kpi-icon.purple { background: #8b5cf6; }
+.rpt-currency-icon { font-size: 15px; font-weight: 800; letter-spacing: -0.5px; }
 .rpt-kpi small { display: block; color: #3b82f6; font-weight: 500; font-size: 13px; }
 .rpt-kpi b { display: block; font-size: 26px; color: var(--navy-dark); overflow-wrap: anywhere; }
-.rpt-kpi > div { min-width: 0; flex: 1; }
+.rpt-kpi > div { min-width: 0; }
 
 /* Transactions */
 .rpt-section-title { font-size: 18px; color: var(--navy-dark); margin: 0 0 10px; }
@@ -170,7 +171,7 @@
 }
 @media (max-width: 760px) {
   .rpt { padding: 16px 14px 22px; }
-  .rpt-kpis { grid-template-columns: 1fr; }
+  .rpt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rpt-head h1 { font-size: 22px; }
 }
 @media (max-width: 640px) {
@@ -217,7 +218,7 @@
 [data-theme="dark"] .rpt-btn.outline { background: #1c242e; }
 
 /* Print: statement only */
-.rpt-print-letterhead, .rpt-print-period { display: none; }
+.rpt-print-letterhead, .rpt-print-period, .rpt-print-stamp-row { display: none; }
 @media print {
   @page { size: A4 landscape; margin: 12mm; }
   .pos-topbar, .pos-sidebar, .pos-menu-toggle, .pos-sidebar-overlay,
@@ -253,12 +254,41 @@
   .rpt-print-letterhead p { margin: 2px 0; font-size: 8.5pt; }
   .rpt-print-meta { margin-left: auto; text-align: right; display: grid; gap: 5px; font-size: 9pt; }
   .rpt-print-meta b { font-size: 12pt; letter-spacing: .06em; color: #123a6d !important; }
+  .rpt-print-stamp-row {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    min-height: 86px;
+    break-inside: avoid;
+    position: running(statementStamp);
+  }
+  .rpt-print-stamp {
+    display: grid !important;
+    place-content: center;
+    justify-items: center;
+    flex: none;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto;
+    border: 3px double #187447;
+    border-radius: 50%;
+    color: #187447 !important;
+    text-align: center;
+    line-height: 1.1;
+    transform: rotate(-10deg);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .rpt-print-stamp b { font-size: 9pt; letter-spacing: .08em; }
+  .rpt-print-stamp span { font-size: 7pt; font-weight: 700; letter-spacing: .16em; }
+  .rpt-print-stamp small { margin-top: 3px; font-size: 6pt; }
   .rpt-print-period { display: block !important; margin: 0 0 12px; font-size: 9.5pt; }
-  .rpt-kpis { grid-template-columns: 1fr; gap: 6px; margin-bottom: 12px; }
-  .rpt-kpi { border: 1px solid #c8d3df !important; border-radius: 4px; padding: 9px 12px; break-inside: avoid; background: #fff !important; }
-  .rpt-kpi-icon { width: 34px; height: 34px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .rpt-kpi small { color: #526275 !important; font-size: 8.5pt; }
-  .rpt-kpi b { color: #14263b !important; font-size: 10pt; }
+  .rpt-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .rpt-kpi { border: 1px solid #c8d3df !important; border-radius: 6px; padding: 10px; gap: 9px; break-inside: avoid; background: #fff !important; }
+  .rpt-kpi-icon { width: 38px; height: 38px; border-radius: 8px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .rpt-currency-icon { font-size: 10pt; font-weight: 800; }
+  .rpt-kpi small { color: #3b82f6 !important; font-size: 8.5pt; }
+  .rpt-kpi b { color: #14263b !important; font-size: 12pt; }
   .rpt-section-title { margin: 0 0 6px; font-size: 12pt; color: #123a6d !important; }
   .rpt-table-card { border: 1px solid #aebdcd !important; border-radius: 3px; break-inside: auto; }
   .rpt-table-wrap { display: block !important; overflow: visible !important; }
@@ -272,4 +302,11 @@
   .rpt-foot { padding: 8px; color: #14263b !important; font-size: 8.5pt; }
   .rpt-total { background: #eaf0f6 !important; color: #14263b !important; border-radius: 3px; }
   .rpt-total b { color: #123a6d !important; }
+  @page {
+    @top-center { content: element(statementStamp); }
+  }
+}
+
+@media (max-width: 480px) {
+  .rpt-kpis { grid-template-columns: 1fr; }
 }

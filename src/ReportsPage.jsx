@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Calendar,
-  CircleDollarSign,
   FileText,
   Printer,
   RotateCcw,
@@ -213,6 +212,13 @@ export default function ReportsPage() {
           <span>Printed {formatStatementDate(printedAt)}</span>
         </div>
       </header>
+      <div className="rpt-print-stamp-row">
+        <div className="rpt-print-stamp" aria-label="Statement printed and issued">
+          <b>STATEMENT</b>
+          <span>ISSUED</span>
+          <small>{printedAt.toLocaleDateString('en-KE')}</small>
+        </div>
+      </div>
       <div className="rpt-print-period">Statement period: <b>{rangeLabel}</b></div>
       {/* Header */}
       <div className="rpt-head">
@@ -254,7 +260,7 @@ export default function ReportsPage() {
           <div><small>Total Services</small><b>{totalServices}</b></div>
         </div>
         <div className="rpt-kpi">
-          <span className="rpt-kpi-icon purple"><CircleDollarSign size={26} /></span>
+          <span className="rpt-kpi-icon purple rpt-currency-icon">KSh</span>
           <div><small>Amount Made</small><b>KSh {amountMade.toLocaleString()}</b></div>
         </div>
       </div>
