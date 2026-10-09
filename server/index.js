@@ -261,10 +261,23 @@ app.patch('/api/admin/requests/:id/sub-contract-items', requireAdmin, async (req
     if (!Array.isArray(req.body?.itemIds) || req.body.itemIds.some((itemId) => typeof itemId !== 'string')) {
       return res.status(400).json({ error: 'Select valid booking items for sub contract.' });
     }
+    const itemActions = req.body?.itemActions && typeof req.body.itemActions === 'object' && !Array.isArray(req.body.itemActions)
+      ? req.body.itemActions
+      : {};
+    if (req.body.itemIds.some((itemId) => !['Washing', 'Drying', 'Ironing'].includes(itemActions[itemId]))) {
+      return res.status(400).json({ error: 'Choose an action for every selected item.' });
+    }
+    const itemColors = req.body?.itemColors && typeof req.body.itemColors === 'object' && !Array.isArray(req.body.itemColors)
+      ? req.body.itemColors
+      : {};
+    const allowedColors = ['White', 'Black', 'Grey', 'Blue', 'Red', 'Green', 'Yellow', 'Orange', 'Pink', 'Purple', 'Brown', 'Cream', 'Multicolour'];
+    if (req.body.itemIds.some((itemId) => !Array.isArray(itemColors[itemId]) || itemColors[itemId].length === 0 || itemColors[itemId].some((color) => !allowedColors.includes(color)))) {
+      return res.status(400).json({ error: 'Choose at least one color for every selected item.' });
+    }
     const request = await bookingRepository.getBookingById(req.params.id);
     if (!request) return res.status(404).json({ error: 'Request not found.' });
 
-    const updatedRequest = await bookingRepository.updateSubContractedItems(req.params.id, [...new Set(req.body.itemIds)]);
+    const updatedRequest = await bookingRepository.updateSubContractedItems(req.params.id, [...new Set(req.body.itemIds)], itemActions, itemColors);
     res.json(updatedRequest);
   } catch (error) {
     if (error.message.includes('do not belong')) return res.status(400).json({ error: error.message });

@@ -375,6 +375,8 @@ export async function upsertServerOrders(serverRequests) {
         discountPercent: Number(i.discountPercent) || 0,
         discountAmount: Number(i.discountAmount) || 0,
         subContracted: Boolean(i.subContracted),
+        subContractAction: i.subContractAction || '',
+        subContractColors: Array.isArray(i.subContractColors) ? i.subContractColors : [],
         subtotal: i.subtotal,
       })),
       notes: req.notes || '',

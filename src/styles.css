@@ -4085,14 +4085,13 @@ footer p {
   overflow-y: auto;
 }
 
-.sub-contract-items label {
+.sub-contract-item-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  cursor: pointer;
 }
 
 .sub-contract-items input {
@@ -4109,6 +4108,56 @@ footer p {
 .sub-contract-items small {
   margin-top: 3px;
   color: var(--fg-muted);
+}
+
+.sub-contract-item-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-contract-item-details select {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  min-height: 36px;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--fg-primary);
+  font: inherit;
+}
+
+.sub-contract-color-picker {
+  display: block;
+  margin-top: 8px;
+}
+
+.sub-contract-color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.sub-contract-color-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--fg-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sub-contract-color-options input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 
 .booking-status-select {

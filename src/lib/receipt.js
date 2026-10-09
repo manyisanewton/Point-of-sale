@@ -310,8 +310,9 @@ export function buildSubContractReceiptHTML(booking = {}) {
   const items = selectedItems.map((item) => `
     <div class="item">
       <div>Service: <b>${escapeHtml(item.service || item.name || 'Laundry item')}</b></div>
+      <div>Action: <b>${escapeHtml(item.subContractAction || 'Not selected')}</b></div>
       <div>Quantity: <b>${escapeHtml(item.kg ?? item.quantity ?? 1)}</b></div>
-      <div>Color: <b>${escapeHtml(item.color || 'Not recorded')}</b></div>
+      <div>Colors: <b>${escapeHtml(Array.isArray(item.subContractColors) && item.subContractColors.length ? item.subContractColors.join(', ') : item.color || 'Not recorded')}</b></div>
     </div>
   `).join('');
 

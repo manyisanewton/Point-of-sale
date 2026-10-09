@@ -143,6 +143,8 @@ model BookingItem {
   discountPercent Float        @default(0)
   discountAmount Int            @default(0)
   subContracted  Boolean        @default(false)
+  subContractAction String      @default("")
+  subContractColors String      @default("[]")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 

@@ -12,6 +12,8 @@ async function ensureBookingItemDiscountColumns() {
     ['discountAmount', 'INTEGER NOT NULL DEFAULT 0'],
     ['color', 'TEXT NOT NULL DEFAULT \'\''],
     ['subContracted', 'INTEGER NOT NULL DEFAULT 0'],
+    ['subContractAction', 'TEXT NOT NULL DEFAULT \'\''],
+    ['subContractColors', 'TEXT NOT NULL DEFAULT \'[]\''],
   ];
   for (const [name, definition] of additions) {
     if (!columnNames.has(name)) {
@@ -46,7 +48,7 @@ async function attachItemDiscounts(request) {
     SELECT "servedBy", "paymentReference" FROM "booking_requests" WHERE "id" = ${request.id}
   `;
   const discounts = await prisma.$queryRaw`
-    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount", "color", "subContracted"
+    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount", "color", "subContracted", "subContractAction", "subContractColors"
     FROM "booking_items"
     WHERE "requestId" = ${request.id}
   `;
@@ -62,6 +64,9 @@ async function attachItemDiscounts(request) {
         ...(discount || {}),
         discountAllowed: discount?.discountAllowed === true || discount?.discountAllowed === 1,
         subContracted: discount?.subContracted === true || discount?.subContracted === 1n || discount?.subContracted === 1,
+        subContractColors: (() => {
+          try { return JSON.parse(discount?.subContractColors || '[]'); } catch { return []; }
+        })(),
       };
     }),
   };
@@ -389,7 +394,7 @@ export const bookingRepository = {
     return this.getBookingById(id);
   },
 
-  async updateSubContractedItems(id, itemIds) {
+  async updateSubContractedItems(id, itemIds, itemActions = {}, itemColors = {}) {
     await ensureBookingItemDiscountColumns();
     const bookingItems = await prisma.$queryRaw`
       SELECT "id" FROM "booking_items" WHERE "requestId" = ${id}
@@ -398,14 +403,20 @@ export const bookingRepository = {
     if (itemIds.some((itemId) => !validIds.has(itemId))) {
       throw new Error('One or more selected items do not belong to this booking.');
     }
+    if (itemIds.some((itemId) => !['Washing', 'Drying', 'Ironing'].includes(itemActions[itemId]))) {
+      throw new Error('Choose an action for every selected item.');
+    }
+    if (itemIds.some((itemId) => !Array.isArray(itemColors[itemId]) || itemColors[itemId].length === 0)) {
+      throw new Error('Choose at least one color for every selected item.');
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
-        UPDATE "booking_items" SET "subContracted" = 0 WHERE "requestId" = ${id}
+        UPDATE "booking_items" SET "subContracted" = 0, "subContractAction" = '', "subContractColors" = '[]' WHERE "requestId" = ${id}
       `;
       for (const itemId of itemIds) {
         await tx.$executeRaw`
-          UPDATE "booking_items" SET "subContracted" = 1 WHERE "id" = ${itemId} AND "requestId" = ${id}
+          UPDATE "booking_items" SET "subContracted" = 1, "subContractAction" = ${itemActions[itemId]}, "subContractColors" = ${JSON.stringify(itemColors[itemId])} WHERE "id" = ${itemId} AND "requestId" = ${id}
         `;
       }
     });

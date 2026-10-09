@@ -18,6 +18,7 @@ const STATUSES = [
   { value: 'ready_for_collection', label: 'Ready for collection' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+const ITEM_COLORS = ['White', 'Black', 'Grey', 'Blue', 'Red', 'Green', 'Yellow', 'Orange', 'Pink', 'Purple', 'Brown', 'Cream', 'Multicolour'];
 
 function bookingStatus(status) {
   if (['new', 'pending', 'confirmed'].includes(status)) return 'received';
@@ -47,6 +48,8 @@ export default function OrdersPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [subContractBooking, setSubContractBooking] = useState(null);
   const [subContractItemIds, setSubContractItemIds] = useState([]);
+  const [subContractActions, setSubContractActions] = useState({});
+  const [subContractColors, setSubContractColors] = useState({});
   const [savingSubContract, setSavingSubContract] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [deletingBookings, setDeletingBookings] = useState(false);
@@ -127,12 +130,29 @@ export default function OrdersPage() {
   function openSubContractItems(order) {
     setSubContractBooking(order);
     setSubContractItemIds((order.items || []).filter((item) => item.subContracted).map((item) => item.id));
+    setSubContractActions(Object.fromEntries((order.items || []).map((item) => [item.id, item.subContractAction || ''])));
+    setSubContractColors(Object.fromEntries((order.items || []).map((item) => [
+      item.id,
+      Array.isArray(item.subContractColors) && item.subContractColors.length
+        ? item.subContractColors
+        : String(item.color || '').split(',').map((color) => color.trim()).filter(Boolean),
+    ])));
   }
 
   function toggleSubContractItem(itemId) {
     setSubContractItemIds((current) => current.includes(itemId)
       ? current.filter((id) => id !== itemId)
       : [...current, itemId]);
+  }
+
+  function toggleSubContractColor(itemId, color) {
+    setSubContractColors((current) => {
+      const colors = current[itemId] || [];
+      return {
+        ...current,
+        [itemId]: colors.includes(color) ? colors.filter((value) => value !== color) : [...colors, color],
+      };
+    });
   }
 
   async function saveSubContractItems() {
@@ -144,7 +164,11 @@ export default function OrdersPage() {
         const response = await fetch(`/api/admin/requests/${encodeURIComponent(subContractBooking.externalId)}/sub-contract-items`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemIds: subContractItemIds }),
+          body: JSON.stringify({
+            itemIds: subContractItemIds,
+            itemActions: Object.fromEntries(subContractItemIds.map((id) => [id, subContractActions[id]])),
+            itemColors: Object.fromEntries(subContractItemIds.map((id) => [id, subContractColors[id] || []])),
+          }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Could not save the sub contract items.');
@@ -159,6 +183,8 @@ export default function OrdersPage() {
       const items = (subContractBooking.items || []).map((item) => ({
         ...item,
         subContracted: subContractItemIds.includes(item.id),
+        subContractAction: subContractItemIds.includes(item.id) ? subContractActions[item.id] : '',
+        subContractColors: subContractItemIds.includes(item.id) ? (subContractColors[item.id] || []) : [],
       }));
       await updateLocalOrder(subContractBooking.id, { items }, { markPending: false });
       refresh();
@@ -396,19 +422,52 @@ export default function OrdersPage() {
             <p>Select the items for <strong>{subContractBooking.customerName || subContractBooking.name || 'this customer'}</strong> that will be sent to a subcontractor.</p>
             <div className="sub-contract-items">
               {(subContractBooking.items || []).map((item, index) => (
-                <label key={item.id || index}>
+                <div className="sub-contract-item-row" key={item.id || index}>
                   <input
                     type="checkbox"
                     checked={subContractItemIds.includes(item.id)}
                     onChange={() => toggleSubContractItem(item.id)}
+                    aria-label={`Sub contract ${item.service || item.name}`}
                   />
-                  <span><strong>{item.service || item.name}</strong><small>Quantity: {item.kg ?? item.quantity ?? 1}</small></span>
-                </label>
+                  <span className="sub-contract-item-details">
+                    <strong>{item.service || item.name}</strong>
+                    <small>Quantity: {item.kg ?? item.quantity ?? 1}</small>
+                    <select
+                      aria-label={`Action for ${item.service || item.name}`}
+                      value={subContractActions[item.id] || ''}
+                      required={subContractItemIds.includes(item.id)}
+                      onChange={(event) => setSubContractActions((current) => ({ ...current, [item.id]: event.target.value }))}
+                    >
+                      <option value="">Select action (required if selected)</option>
+                      <option value="Washing">Washing</option>
+                      <option value="Drying">Drying</option>
+                      <option value="Ironing">Ironing</option>
+                    </select>
+                    {subContractItemIds.includes(item.id) && (
+                      <span className="sub-contract-color-picker" role="group" aria-label={`Colors for ${item.service || item.name}`}>
+                        <small>Select colors:</small>
+                        <span className="sub-contract-color-options">
+                          {[...new Set([...ITEM_COLORS, ...(subContractColors[item.id] || []).filter((color) => !ITEM_COLORS.includes(color))])].map((color) => (
+                            <label key={color}>
+                              <input
+                                type="checkbox"
+                                checked={(subContractColors[item.id] || []).includes(color)}
+                                onChange={() => toggleSubContractColor(item.id, color)}
+                                aria-label={`${color} for ${item.service || item.name}`}
+                              />
+                              {color}
+                            </label>
+                          ))}
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                </div>
               ))}
             </div>
             <div className="booking-dialog-actions">
               <button className="booking-dialog-secondary" type="button" onClick={() => setSubContractBooking(null)} disabled={savingSubContract}>Cancel</button>
-              <button className="booking-dialog-primary" type="button" onClick={saveSubContractItems} disabled={savingSubContract}>
+              <button className="booking-dialog-primary" type="button" onClick={saveSubContractItems} disabled={savingSubContract || subContractItemIds.some((id) => !subContractActions[id] || !(subContractColors[id] || []).length)}>
                 {savingSubContract ? 'Saving…' : 'Save Sub Contract Items'}
               </button>
             </div>
