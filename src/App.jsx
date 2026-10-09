@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { AuthProvider } from './AuthContext.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import LoginPage from './LoginPage.jsx';
 import MarketingLayout from './MarketingLayout.jsx';
 import POSLayout from './POSLayout.jsx';
-import BookingForm from './BookingForm.jsx';
 import AdminDashboard from './AdminDashboard.jsx';
 import ReceiptPage from './ReceiptPage.jsx';
 import FAQPage from './FAQPage.jsx';
@@ -128,26 +127,7 @@ function PricingPage() {
 }
 
 function BookingPageWrapper() {
-  return (
-    <>
-      <Helmet>
-        <title>Book a Pickup | Open Doors Laundromat</title>
-        <meta name="description" content="Schedule your laundry pickup with Open Doors Laundromat." />
-        <meta name="robots" content="index, follow" />
-        <link rel="canonical" href={`${SITE_URL}/booking`} />
-        <meta property="og:title" content="Book a Pickup | Open Doors Laundromat" />
-        <meta property="og:description" content="Schedule your laundry pickup." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={`${SITE_URL}/booking`} />
-        <meta property="og:image" content={`${SITE_URL}/assets/laundry-machines.jpg`} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Book a Pickup | Open Doors Laundromat" />
-        <meta name="twitter:description" content="Schedule your laundry pickup." />
-        <meta name="twitter:image" content={`${SITE_URL}/assets/laundry-machines.jpg`} />
-      </Helmet>
-      <BookingForm />
-    </>
-  );
+  return <Navigate to="/" replace />;
 }
 
 function AdminPageWrapper() {

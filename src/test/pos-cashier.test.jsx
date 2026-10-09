@@ -85,6 +85,20 @@ afterEach(() => {
 });
 
 describe('cashier workflow offline (real component, real Dexie)', () => {
+  it('requires an item color before a service can be added', async () => {
+    setOnline(false);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
+    const user = userEvent.setup();
+    renderSale();
+
+    await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
+    const washingCard = screen.getByText('Washing').closest('article');
+    await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Select an item color for Washing');
+    expect(within(screen.getByLabelText('Cart and checkout')).getByText(/cart is empty/i)).toBeInTheDocument();
+  });
+
   it('blocks checkout and persists nothing when customer details are missing', async () => {
     setOnline(false);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
@@ -93,6 +107,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
 
     await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
     const washingCard = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(washingCard).getByLabelText('Item color for Washing'), 'White');
     await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
     await user.click(screen.getByRole('button', { name: /complete sale/i }));
 
@@ -110,6 +125,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
 
     await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
     const washingCard = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(washingCard).getByLabelText('Item color for Washing'), 'Blue');
     await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
     const washingRow = within(screen.getByLabelText('Cart and checkout')).getByText('Washing').closest('.cart-row');
     await user.selectOptions(within(washingRow).getByLabelText('Discount allowed for Washing'), 'yes');
@@ -162,9 +178,11 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
 
     // Add Washing x1, bump to x2, add Drying x1 → total 1800.
     const washingCard = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(washingCard).getByLabelText('Item color for Washing'), 'White');
     await user.click(within(washingCard).getByRole('button', { name: /increase quantity/i }));
     await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
     const dryingCard = screen.getByText('Drying').closest('article');
+    await user.selectOptions(within(dryingCard).getByLabelText('Item color for Drying'), 'Blue');
     await user.click(within(dryingCard).getByRole('button', { name: /^add$/i }));
     await waitFor(() => expect(screen.getByText('KSh 1,800', { selector: '.grand-total span:last-child' })).toBeInTheDocument());
 
@@ -206,6 +224,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     const { unmount } = renderSale();
     await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
     const washingCard = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(washingCard).getByLabelText('Item color for Washing'), 'Black');
     await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Refresh Rose');
     await user.type(screen.getByLabelText('Customer phone'), '0733333333');
@@ -238,6 +257,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
 
     async function completeQuickSale(name, phone) {
       const card = screen.getByText('Washing').closest('article');
+      await user.selectOptions(within(card).getByLabelText('Item color for Washing'), 'White');
       await user.click(within(card).getByRole('button', { name: /^add$/i }));
       await user.clear(screen.getByLabelText('Customer name'));
       await user.type(screen.getByLabelText('Customer name'), name);
@@ -297,6 +317,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     renderSale();
     await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
     const card = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(card).getByLabelText('Item color for Washing'), 'Red');
     await user.click(within(card).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Partial Pam');
     await user.type(screen.getByLabelText('Customer phone'), '0777777777');
@@ -332,6 +353,7 @@ describe('restart durability (fresh database handle, same device)', () => {
     renderSale();
     await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
     const card = screen.getByText('Washing').closest('article');
+    await user.selectOptions(within(card).getByLabelText('Item color for Washing'), 'Grey');
     await user.click(within(card).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Restart Rita');
     await user.type(screen.getByLabelText('Customer phone'), '0788888888');

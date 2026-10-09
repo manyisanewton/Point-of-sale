@@ -110,6 +110,15 @@ function MethodBadge({ method }) {
   return <span className="payrep-method"><span className="payrep-micon cash"><Wallet size={12} /></span> Cash</span>;
 }
 
+function PaymentStatusBadge({ status }) {
+  const paid = status === 'paid';
+  return (
+    <span className={`payrep-status ${paid ? 'paid' : 'unpaid'}`}>
+      {paid ? 'Paid' : 'Unpaid'}
+    </span>
+  );
+}
+
 export default function PaymentsPage() {
   const navigate = useNavigate();
   const [lines, setLines] = useState([]);
@@ -360,12 +369,12 @@ export default function PaymentsPage() {
             <tr>
               <th>No.</th><th>Customer Name</th><th>Service</th><th>Qty</th>
               <th>Unit Price (Ksh.)</th><th>Discount (Ksh.)</th><th>Price (Ksh.)</th>
-              <th>Amount (Ksh.)</th><th>Payment Method</th><th>Date</th><th>Notes</th>
+              <th>Amount (Ksh.)</th><th>Payment Method</th><th>Payment Status</th><th>Date</th><th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {pageGroups.length === 0 && (
-              <tr><td colSpan={11} className="payrep-empty">No payments match the selected filters. <button type="button" className="payrep-receipt" onClick={resetFilters}>Clear filters</button></td></tr>
+              <tr><td colSpan={12} className="payrep-empty">No payments match the selected filters. <button type="button" className="payrep-receipt" onClick={resetFilters}>Clear filters</button></td></tr>
             )}
             {pageGroups.map((g) => (
               <Fragment key={g.customer}>
@@ -386,6 +395,7 @@ export default function PaymentsPage() {
                     <td className="num">{r.price.toLocaleString()}</td>
                     <td className="num">{r.amount.toLocaleString()}</td>
                     <td><MethodBadge method={r.paymentMethod} /></td>
+                    <td><PaymentStatusBadge status={r.paymentStatus} /></td>
                     <td className="payrep-date">{String(r.date).slice(0, 10)}</td>
                     <td className="payrep-notes">{r.notes}{r.receiptToken && (
                       <button type="button" className="payrep-receipt" onClick={() => navigate(`/receipt/${r.receiptToken}`)}>Receipt</button>
@@ -397,7 +407,7 @@ export default function PaymentsPage() {
                   <td className="num">{g.qty}</td>
                   <td colSpan={4} />
                   <td className="num">{g.amount.toLocaleString()}</td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                 </tr>
               </Fragment>
             ))}
@@ -407,7 +417,7 @@ export default function PaymentsPage() {
               <tr>
                 <td colSpan={2}>Grand Total</td>
                 <td className="num">{totalQty}</td>
-                <td colSpan={3} />
+                <td colSpan={4} />
                 <td className="num">{grandTotal.toLocaleString()}</td>
                 <td colSpan={2} className="payrep-share">✓ {paidPct}% Paid &nbsp;|&nbsp; {100 - paidPct}% Pending</td>
                 <td colSpan={2} />
@@ -434,6 +444,7 @@ export default function PaymentsPage() {
                 </div>
                 <div className="payrep-card-meta">
                   <MethodBadge method={r.paymentMethod} />
+                  <PaymentStatusBadge status={r.paymentStatus} />
                   <span>{String(r.date).slice(0, 10)}</span>
                 </div>
                 <small>{r.notes}{r.receiptToken && (

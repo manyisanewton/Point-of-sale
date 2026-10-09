@@ -1,3 +1,4 @@
+import '../config/env.js';
 import { PrismaClient } from '@prisma/client';
 
 // Create a singleton Prisma client for Vercel serverless functions

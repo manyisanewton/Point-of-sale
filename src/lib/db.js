@@ -334,6 +334,7 @@ export async function getSyncLog(limit = 50) {
 export async function upsertServerOrders(serverRequests) {
   const now = new Date().toISOString();
   let mirrored = 0;
+  const serverIds = new Set((serverRequests || []).map((req) => req?.id).filter(Boolean));
   for (const req of serverRequests || []) {
     if (!req || !req.id) continue;
     const clientId = `server_${req.id}`;
@@ -363,6 +364,7 @@ export async function upsertServerOrders(serverRequests) {
       items: (req.items || []).map((i) => ({
         name: i.service,
         service: i.service,
+        color: i.color || '',
         price: i.unitPrice,
         unitPrice: i.unitPrice,
         quantity: i.kg,
@@ -395,6 +397,13 @@ export async function upsertServerOrders(serverRequests) {
     }
     mirrored += 1;
   }
+  // Remove server-backed rows absent from the latest authoritative snapshot.
+  const staleServerRows = await db.orders.toArray();
+  for (const order of staleServerRows) {
+    if (order.externalId && !serverIds.has(order.externalId)) {
+      await db.orders.delete(order.id);
+    }
+  }
   // Sweep: no two rows may claim the same server booking. Prefer the
   // sale-time local row; drop redundant server_ mirrors.
   const allOrders = await db.orders.toArray();
@@ -416,32 +425,12 @@ export async function upsertServerOrders(serverRequests) {
   return { mirrored };
 }
 
-/** Mirror server-known customers (by normalized phone) without touching pending locals. */
+/** Mirror server-known customers without deleting saved customers during sync. */
 export async function upsertServerCustomers(serverRequests) {
   const now = new Date().toISOString();
   const normalizePhone = (value) => String(value || '').replace(/[\s-]/g, '');
   let mirrored = 0;
   const serverRows = (serverRequests || []).filter((req) => req?.phone);
-  const serverIds = new Set(serverRows.map((req) => req.id).filter(Boolean));
-  // Collapse pre-existing local duplicates first so the same user can only
-  // ever appear once, regardless of phone formatting ("0712 345 678" vs
-  // "0712345678").
-  const locals = await db.customers.toArray();
-  const seenPhones = new Map();
-  for (const local of locals) {
-    const key = normalizePhone(local.phone);
-    if (!key) continue;
-    if (!seenPhones.has(key)) {
-      seenPhones.set(key, local);
-    } else {
-      const keeper = seenPhones.get(key);
-      // Prefer the pending (unsynced) row; otherwise keep the earliest.
-      const keepLocal = local.syncStatus === 'pending' && keeper.syncStatus !== 'pending' ? local : keeper;
-      const dropLocal = keepLocal === local ? keeper : local;
-      seenPhones.set(key, keepLocal);
-      await db.customers.delete(dropLocal.id);
-    }
-  }
   for (const req of serverRows) {
     const normalizedPhone = normalizePhone(req.phone);
     const customer = {
@@ -466,12 +455,6 @@ export async function upsertServerCustomers(serverRequests) {
       await db.customers.add(customer);
     }
     mirrored += 1;
-  }
-  const syncedCustomers = await db.customers.where('syncStatus').equals('synced').toArray();
-  for (const customer of syncedCustomers) {
-    if (customer.externalId && !serverIds.has(customer.externalId)) {
-      await db.customers.delete(customer.id);
-    }
   }
   return { mirrored };
 }

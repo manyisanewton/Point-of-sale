@@ -177,15 +177,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="cta-section">
-        <div className="cta-content">
-          <h2>Ready for a fresh start?</h2>
-          <p>Book your pickup today from Chuna Mall, Kitengela.</p>
-          <button className="btn-primary" onClick={() => navigate('/booking')}>
-            Book a pickup <ArrowUpRight size={18} />
-          </button>
-        </div>
-      </section>
     </>
   );
 }

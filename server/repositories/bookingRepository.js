@@ -10,6 +10,7 @@ async function ensureBookingItemDiscountColumns() {
     ['discountAllowed', 'INTEGER NOT NULL DEFAULT 0'],
     ['discountPercent', 'REAL NOT NULL DEFAULT 0'],
     ['discountAmount', 'INTEGER NOT NULL DEFAULT 0'],
+    ['color', 'TEXT NOT NULL DEFAULT \'\''],
   ];
   for (const [name, definition] of additions) {
     if (!columnNames.has(name)) {
@@ -44,7 +45,7 @@ async function attachItemDiscounts(request) {
     SELECT "servedBy", "paymentReference" FROM "booking_requests" WHERE "id" = ${request.id}
   `;
   const discounts = await prisma.$queryRaw`
-    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount"
+    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount", "color"
     FROM "booking_items"
     WHERE "requestId" = ${request.id}
   `;
@@ -118,17 +119,26 @@ export const bookingRepository = {
 
       const unitPrice = pricingItem.unitPrice;
       const discountAllowed = bookingData.allowDiscounts && item.discountAllowed === true;
-      const discountPercent = discountAllowed ? Number(item.discountPercent || 0) : 0;
-      if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
-        throw new Error(`Invalid discount for ${itemName}: ${discountPercent}`);
-      }
       const originalSubtotal = unitPrice * kg;
-      const discountAmount = Math.round(originalSubtotal * discountPercent / 100);
+      // Older offline sales stored a percentage; convert those queued items
+      // while new sales send a fixed KSh discount amount.
+      const hasFixedDiscount = item.discountAmount !== undefined && item.discountAmount !== null;
+      const requestedDiscount = discountAllowed
+        ? hasFixedDiscount
+          ? Number(item.discountAmount)
+          : Math.round(originalSubtotal * Number(item.discountPercent || 0) / 100)
+        : 0;
+      if (!Number.isInteger(requestedDiscount) || requestedDiscount < 0 || requestedDiscount > originalSubtotal) {
+        throw new Error(`Invalid discount amount for ${itemName}: ${requestedDiscount}`);
+      }
+      const discountAmount = requestedDiscount;
+      const discountPercent = originalSubtotal ? discountAmount / originalSubtotal * 100 : 0;
       const subtotal = originalSubtotal - discountAmount;
       estimatedTotal += subtotal;
 
       bookingItemsData.push({
         service: itemName,
+        color: String(item.color || '').trim().slice(0, 30),
         kg,
         unitPrice,
         priceLabel: pricingItem.price,
@@ -194,7 +204,8 @@ export const bookingRepository = {
             SET "originalSubtotal" = ${itemData.originalSubtotal},
                 "discountAllowed" = ${itemData.discountAllowed},
                 "discountPercent" = ${itemData.discountPercent},
-                "discountAmount" = ${itemData.discountAmount}
+                "discountAmount" = ${itemData.discountAmount},
+                "color" = ${itemData.color}
             WHERE "id" = ${createdItem.id}
           `;
       }
@@ -215,6 +226,7 @@ export const bookingRepository = {
 
   // Get a booking request by receipt token (public receipt page)
   async getBookingByToken(token) {
+    await ensureBookingItemDiscountColumns();
     const request = await prisma.bookingRequest.findUnique({
       where: { receiptToken: token },
       include: { items: true },
@@ -241,6 +253,7 @@ export const bookingRepository = {
 
   // Get a booking request by ID (admin)
   async getBookingById(id) {
+    await ensureBookingItemDiscountColumns();
     const request = await prisma.bookingRequest.findUnique({
       where: { id },
       include: { items: true },
@@ -250,6 +263,7 @@ export const bookingRepository = {
 
   // Get all booking requests with pagination
   async getAllBookings({ page = 1, limit = 20, status } = {}) {
+    await ensureBookingItemDiscountColumns();
     const skip = (page - 1) * limit;
     const where = status ? { status } : {};
     
@@ -269,6 +283,7 @@ export const bookingRepository = {
 
   // Get recent bookings for dashboard
   async getRecentBookings(limit = 5) {
+    await ensureBookingItemDiscountColumns();
     const requests = await prisma.bookingRequest.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
@@ -288,13 +303,34 @@ export const bookingRepository = {
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
     
-    const [todayCount, newCount, completedCount, totalCount] = await Promise.all([
+    const [
+      todayCount,
+      newCount,
+      completedCount,
+      totalCount,
+      activeCount,
+      readyCount,
+      pendingPayments,
+      todayRevenue,
+    ] = await Promise.all([
       prisma.bookingRequest.count({
         where: { createdAt: { gte: todayStart, lt: todayEnd } },
       }),
       prisma.bookingRequest.count({ where: { status: 'new' } }),
       prisma.bookingRequest.count({ where: { status: 'completed' } }),
       prisma.bookingRequest.count(),
+      prisma.bookingRequest.count({
+        where: { status: { notIn: ['completed', 'cancelled'] } },
+      }),
+      prisma.bookingRequest.count({ where: { status: 'ready_for_collection' } }),
+      prisma.bookingRequest.count({ where: { paymentStatus: 'pending' } }),
+      prisma.bookingRequest.aggregate({
+        _sum: { estimatedTotal: true },
+        where: {
+          paymentStatus: 'paid',
+          createdAt: { gte: todayStart, lt: todayEnd },
+        },
+      }),
     ]);
     
     // Last 7 days stats
@@ -329,6 +365,10 @@ export const bookingRepository = {
       new: newCount,
       completed: completedCount,
       total: totalCount,
+      active: activeCount,
+      ready: readyCount,
+      pendingPayments,
+      todayRevenue: todayRevenue._sum.estimatedTotal || 0,
       daily: dailyStats,
     };
   },

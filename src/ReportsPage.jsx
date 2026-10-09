@@ -41,6 +41,7 @@ function normalizeTransactions(requests) {
     const services = rawItems.map((it) => ({
       service: it.service || it.name || 'Service',
       qty: itemQty(it),
+      color: String(it.color || '').trim(),
     }));
     const itemsSum = rawItems.reduce(
       (s, it) => s + (Number(it.subtotal ?? (Number(it.unitPrice ?? 0) * itemQty(it))) || 0),
@@ -67,6 +68,12 @@ function StatusPill({ status }) {
     : <span className="rpt-pill pending">Pending</span>;
 }
 
+function formatStatementDate(date) {
+  return new Intl.DateTimeFormat('en-KE', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  }).format(date);
+}
+
 export default function ReportsPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +83,8 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
   const [dateWarning, setDateWarning] = useState('');
+  const [businessInfo, setBusinessInfo] = useState(null);
+  const [printedAt] = useState(() => new Date());
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +127,13 @@ export default function ReportsPage() {
     }
     load();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/site-settings')
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data?.businessInfo) setBusinessInfo(data.businessInfo); })
+      .catch(() => {});
   }, []);
 
   // Keep range valid: start after end swaps automatically with a notice.
@@ -185,6 +201,19 @@ export default function ReportsPage() {
 
   return (
     <div className="rpt">
+      <header className="rpt-print-letterhead">
+        <img src="/assets/logo.jpg" alt="Open Doors Laundromat logo" />
+        <div>
+          <h1>{businessInfo?.name || 'Open Doors Laundromat'}</h1>
+          <p>{businessInfo?.address || 'Chuna Mall, Ground Floor, Shop 10, Kitengela'}</p>
+          <p>{[businessInfo?.phone || '011 944 4972', businessInfo?.email || 'opendoorslaundromat@gmail.com'].join(' · ')}</p>
+        </div>
+        <div className="rpt-print-meta">
+          <b>BUSINESS STATEMENT</b>
+          <span>Printed {formatStatementDate(printedAt)}</span>
+        </div>
+      </header>
+      <div className="rpt-print-period">Statement period: <b>{rangeLabel}</b></div>
       {/* Header */}
       <div className="rpt-head">
         <span className="rpt-head-icon"><BarChart3 size={26} /></span>
@@ -252,7 +281,7 @@ export default function ReportsPage() {
                   <td>
                     <ul className="rpt-services">
                       {t.services.map((s, i) => (
-                        <li key={i}>{s.service} ×{s.qty}</li>
+                        <li key={i}>{s.service} ×{s.qty}{s.color ? ` · ${s.color}` : ''}</li>
                       ))}
                     </ul>
                   </td>
@@ -277,7 +306,7 @@ export default function ReportsPage() {
               </header>
               <ul className="rpt-services">
                 {t.services.map((s, i) => (
-                  <li key={i}>{s.service} ×{s.qty}</li>
+                  <li key={i}>{s.service} ×{s.qty}{s.color ? ` · ${s.color}` : ''}</li>
                 ))}
               </ul>
               <footer>

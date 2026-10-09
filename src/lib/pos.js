@@ -11,33 +11,33 @@ export function clampQty(qty) {
   return Math.max(MIN_QTY, Math.min(MAX_QTY, n));
 }
 
-function clampDiscountPercent(value) {
-  const percent = Number(value);
-  if (!Number.isFinite(percent)) return 0;
-  return Math.min(100, Math.max(0, percent));
+function clampDiscountAmount(value, originalSubtotal) {
+  const amount = Math.floor(Number(value));
+  if (!Number.isFinite(amount)) return 0;
+  return Math.min(originalSubtotal, Math.max(0, amount));
 }
 
-function priceCartLine(line, qty, discountAllowed = line.discountAllowed, discountPercent = line.discountPercent) {
+function priceCartLine(line, qty, discountAllowed = line.discountAllowed, discountAmount = line.discountAmount) {
   const quantity = clampQty(qty);
   const originalSubtotal = Number(line.unitPrice) * quantity;
   const allowed = Boolean(discountAllowed);
-  const percent = allowed ? clampDiscountPercent(discountPercent) : 0;
-  const discountAmount = Math.round(originalSubtotal * percent / 100);
+  const amount = allowed ? clampDiscountAmount(discountAmount, originalSubtotal) : 0;
   return {
     ...line,
     qty: quantity,
     originalSubtotal,
     discountAllowed: allowed,
-    discountPercent: percent,
-    discountAmount,
-    subtotal: originalSubtotal - discountAmount,
+    discountPercent: originalSubtotal ? amount / originalSubtotal * 100 : 0,
+    discountAmount: amount,
+    subtotal: originalSubtotal - amount,
   };
 }
 
 /** Add a catalog service to the cart (merges with existing line). */
-export function addToCart(cart, catalogItem, qty = 1) {
+export function addToCart(cart, catalogItem, qty = 1, color = '') {
   const q = clampQty(qty);
-  const key = catalogItem.serviceName;
+  const selectedColor = String(color || '').trim();
+  const key = selectedColor ? `${catalogItem.serviceName}::${selectedColor}` : catalogItem.serviceName;
   const existing = cart.find((l) => l.key === key);
   if (existing) {
     return cart.map((l) =>
@@ -47,10 +47,11 @@ export function addToCart(cart, catalogItem, qty = 1) {
   return [...cart, priceCartLine({
     key,
     service: catalogItem.serviceName,
+    color: selectedColor,
     unitPrice: Number(catalogItem.unitPrice),
     category: catalogItem.category || '',
     discountAllowed: false,
-    discountPercent: 0,
+    discountAmount: 0,
   }, q, false, 0)];
 }
 
@@ -59,11 +60,11 @@ export function setLineQty(cart, key, qty) {
   return cart.map((line) => (line.key === key ? priceCartLine(line, qty) : line));
 }
 
-/** Set whether a cart line may be discounted and its percentage. */
-export function setLineDiscount(cart, key, discountAllowed, discountPercent = 0) {
+/** Set whether a cart line may be discounted and its fixed KSh discount. */
+export function setLineDiscount(cart, key, discountAllowed, discountAmount = 0) {
   return cart.map((line) => (
     line.key === key
-      ? priceCartLine(line, line.qty, discountAllowed, discountPercent)
+      ? priceCartLine(line, line.qty, discountAllowed, discountAmount)
       : line
   ));
 }
@@ -98,6 +99,7 @@ export function buildOfflineOrder({ cart, customerName, customerPhone = '', serv
     items: cart.map((l) => ({
       name: l.service,
       service: l.service,
+      color: l.color || '',
       price: l.unitPrice,
       unitPrice: l.unitPrice,
       quantity: l.qty,

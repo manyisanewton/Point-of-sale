@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './config/env.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -243,6 +243,10 @@ app.patch('/api/admin/requests/:id', requireAdmin, validateStatusUpdate, async (
     if (!request) {
       return res.status(404).json({ error: 'Request not found.' });
     }
+
+    if (request.status === status) {
+      return res.json(request);
+    }
     
     const updatedRequest = await bookingRepository.updateBookingStatus(id, status);
     res.json(updatedRequest);
@@ -258,10 +262,10 @@ app.post('/api/admin/requests/:id/payment', requireAdmin, async (req, res, next)
     if (!['Cash', 'M-Pesa'].includes(method)) {
       return res.status(400).json({ error: 'Choose Cash or M-Pesa.' });
     }
-    if (method === 'M-Pesa' && (!reference || reference.length > 64)) {
-      return res.status(400).json({ error: 'Enter a valid M-Pesa transaction code (up to 64 characters).' });
+    if (method === 'M-Pesa' && !/^[A-Z0-9]{10}$/i.test(reference)) {
+      return res.status(400).json({ error: 'Enter the 10-character M-Pesa transaction code using letters and numbers only.' });
     }
-    const booking = await bookingRepository.recordPayment(req.params.id, { method, reference });
+    const booking = await bookingRepository.recordPayment(req.params.id, { method, reference: reference.toUpperCase() });
     if (!booking) return res.status(404).json({ error: 'Request not found.' });
     res.json(booking);
   } catch (error) {
@@ -270,6 +274,15 @@ app.post('/api/admin/requests/:id/payment', requireAdmin, async (req, res, next)
 });
 
 // Delete a request (only completed ones)
+app.delete('/api/admin/requests', requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await bookingRepository.deleteAllBookings();
+    res.json({ ok: true, deleted: result.count });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.delete('/api/admin/requests/:id', requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -353,7 +366,9 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
         ? rawItems.map((it) => ({
             service: it.service || it.name || service,
             kg: Number(it.kg || it.quantity || 1),
+            color: String(it.color || '').trim().slice(0, 30),
             discountAllowed: it.discountAllowed === true,
+            discountAmount: it.discountAmount == null ? undefined : Number(it.discountAmount),
             discountPercent: Number(it.discountPercent || 0),
           }))
         : [{ service, kg: Number(payload.quantity || 1) }];

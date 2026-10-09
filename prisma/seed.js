@@ -1,3 +1,4 @@
+import '../server/config/env.js';
 import { PrismaClient } from '@prisma/client';
 import fs from 'node:fs/promises';
 import path from 'node:path';

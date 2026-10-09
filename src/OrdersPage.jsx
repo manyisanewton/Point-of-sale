@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ClipboardList,
   CreditCard,
@@ -46,6 +46,8 @@ export default function OrdersPage() {
   const [printPromptBooking, setPrintPromptBooking] = useState(null);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
+  const [deletingBookings, setDeletingBookings] = useState(false);
+  const readyConfirmationInFlight = useRef(false);
 
   // Local-first: Dexie renders immediately; server refreshes the mirror
   // when online. Offline shows local rows with an honest notice.
@@ -112,20 +114,69 @@ export default function OrdersPage() {
 
   async function handleStatusChange(order, status) {
     if (status === 'ready_for_collection') {
+      if (bookingStatus(order.status) === 'ready_for_collection') return;
       setConfirmingReady(order);
       return;
     }
     await saveStatus(order, status);
   }
 
+  async function deleteAllBookings() {
+    const serverOrders = orders.filter((order) => order.externalId);
+    if (!serverOrders.length) {
+      setNotice('No server bookings are available to delete.');
+      return;
+    }
+    if (!window.confirm(`Permanently delete all ${serverOrders.length} bookings and their items? This cannot be undone.`)) return;
+
+    setDeletingBookings(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/admin/requests', { method: 'DELETE' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not delete bookings.');
+
+      // Refreshing replaces the server mirror with the now-empty server result.
+      const dashboardResponse = await fetch('/api/admin/dashboard');
+      if (!dashboardResponse.ok) throw new Error('Bookings were deleted, but the empty list could not be verified.');
+      const dashboard = await dashboardResponse.json();
+      if ((dashboard.requests || []).length !== 0) throw new Error('The server still reports bookings after deletion.');
+      await upsertServerOrders([]);
+
+      const { db } = await import('./lib/db.js');
+      await db.transaction('rw', db.orders, db.payments, db.receipts, async () => {
+        const ids = orders.map((order) => order.id);
+        await db.payments.where('orderId').anyOf(ids).delete();
+        await db.receipts.where('orderId').anyOf(ids).delete();
+        await db.orders.bulkDelete(ids);
+      });
+      refresh();
+      setNotice(`Deleted ${result.deleted} server booking(s).`);
+    } catch (error) {
+      setNotice(error.message || 'Could not delete bookings. Please try again.');
+    } finally {
+      setDeletingBookings(false);
+    }
+  }
+
   async function confirmReadyForCollection() {
-    if (!confirmingReady) return;
-    const readyBooking = await saveStatus(confirmingReady, 'ready_for_collection');
-    if (readyBooking) {
-      setSelectedBooking(readyBooking);
-      setPaymentMethod(readyBooking.paymentMethod === 'M-Pesa' ? 'M-Pesa' : 'Cash');
-      setPaymentReference(readyBooking.paymentReference || '');
+    if (!confirmingReady || readyConfirmationInFlight.current) return;
+    if (bookingStatus(confirmingReady.status) === 'ready_for_collection') {
       setConfirmingReady(null);
+      return;
+    }
+
+    readyConfirmationInFlight.current = true;
+    try {
+      const readyBooking = await saveStatus(confirmingReady, 'ready_for_collection');
+      if (readyBooking) {
+        setSelectedBooking(readyBooking);
+        setPaymentMethod(readyBooking.paymentMethod === 'M-Pesa' ? 'M-Pesa' : 'Cash');
+        setPaymentReference(readyBooking.paymentReference || '');
+        setConfirmingReady(null);
+      }
+    } finally {
+      readyConfirmationInFlight.current = false;
     }
   }
 
@@ -134,8 +185,8 @@ export default function OrdersPage() {
       setPaymentError('This booking must sync with the server before payment can be recorded.');
       return;
     }
-    if (paymentMethod === 'M-Pesa' && !paymentReference.trim()) {
-      setPaymentError('Enter the M-Pesa transaction code.');
+    if (paymentMethod === 'M-Pesa' && !/^[A-Z0-9]{10}$/.test(paymentReference.trim().toUpperCase())) {
+      setPaymentError('Enter the 10-character M-Pesa transaction code using letters and numbers only.');
       return;
     }
     setSavingPayment(true);
@@ -144,7 +195,7 @@ export default function OrdersPage() {
       const response = await fetch(`/api/admin/requests/${encodeURIComponent(selectedBooking.externalId)}/payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: paymentMethod, reference: paymentReference.trim() }),
+        body: JSON.stringify({ method: paymentMethod, reference: paymentReference.trim().toUpperCase() }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not record payment.');
@@ -196,6 +247,9 @@ export default function OrdersPage() {
       )}
       <div className="bookings-toolbar">
         <h3 id="bookings-table-heading">Bookings</h3>
+        <button className="booking-dialog-secondary" type="button" onClick={deleteAllBookings} disabled={deletingBookings || loading || !serverKnown}>
+          {deletingBookings ? 'Deleting…' : 'Delete all bookings'}
+        </button>
         <div className="pos-filters" role="group" aria-label="Filter orders by status">
           {STATUSES.map(({ value, label }) => (
             <button
@@ -272,10 +326,19 @@ export default function OrdersPage() {
         <div className="booking-dialog-backdrop">
           <section className="booking-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ready-booking-title">
             <h2 id="ready-booking-title">Ready for collection?</h2>
-            <p>
-              Mark <strong>{confirmingReady.customerName || confirmingReady.name}</strong>’s booking as ready for collection?
-              A customer notification can be prepared after confirming.
+            <p className="ready-notification-message">
+              Please notify <strong>{confirmingReady.customerName || confirmingReady.name || 'the customer'}</strong> that their laundry items are ready and can now be collected from Open Doors Laundromat.
             </p>
+            <div className="ready-customer-contact">
+              <span>Customer contact number</span>
+              {confirmingReady.phone || confirmingReady.customerPhone ? (
+                <a href={`tel:${confirmingReady.phone || confirmingReady.customerPhone}`}>
+                  {confirmingReady.phone || confirmingReady.customerPhone}
+                </a>
+              ) : (
+                <strong>No contact number recorded</strong>
+              )}
+            </div>
             <div className="booking-dialog-actions">
               <button className="booking-dialog-secondary" type="button" onClick={() => setConfirmingReady(null)} disabled={savingStatus}>Cancel</button>
               <button className="booking-dialog-primary" type="button" onClick={confirmReadyForCollection} disabled={savingStatus}>
@@ -341,7 +404,17 @@ export default function OrdersPage() {
                     {paymentMethod === 'M-Pesa' && (
                       <label className="booking-payment-field">
                         M-Pesa transaction code
-                        <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} maxLength="64" required />
+                        <input
+                          value={paymentReference}
+                          onChange={(event) => setPaymentReference(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                          autoCapitalize="characters"
+                          autoComplete="off"
+                          pattern="[A-Za-z0-9]{10}"
+                          minLength={10}
+                          maxLength={10}
+                          title="Enter exactly 10 letters and/or numbers, as shown in the M-Pesa message."
+                          required
+                        />
                       </label>
                     )}
                     {paymentError && <p className="booking-payment-error" role="alert">{paymentError}</p>}

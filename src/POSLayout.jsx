@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   BarChart3,
+  Home,
   LogOut,
   Menu,
   X,
@@ -106,6 +107,10 @@ export default function POSLayout({ children }) {
         </div>
 
         <nav className="pos-nav" aria-label="POS">
+          <a className="pos-main-site-link" href="/" onClick={() => setSidebarOpen(false)}>
+            <Home size={17} aria-hidden="true" />
+            Main website
+          </a>
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -122,7 +127,16 @@ export default function POSLayout({ children }) {
 
         <div className="pos-sidebar-footer">
           <div className="pos-user-info">
-            <span className="pos-user-email">{user?.email}{user?.offline ? ' (offline)' : ''}</span>
+            <span className="pos-user-avatar" aria-hidden="true">
+              {user?.email?.slice(0, 1).toUpperCase() || 'A'}
+            </span>
+            <div className="pos-user-details">
+              <span className="pos-user-label">Signed in as</span>
+              <span className="pos-user-email" title={user?.email || 'Administrator'}>
+                {user?.email || 'Administrator'}
+              </span>
+              {user?.offline && <span className="pos-user-offline">Offline account</span>}
+            </div>
           </div>
           <button className="pos-logout-btn" onClick={handleLogout}>
             <LogOut size={18} /> Log out

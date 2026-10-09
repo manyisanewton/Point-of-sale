@@ -23,15 +23,22 @@ export function normalizeReceiptData(order = {}, receiptNumber = '', receiptToke
     const service = item.service || item.name || 'Item';
     const qty = toNumber(item.kg ?? item.quantity ?? 1, 1);
     const unitPrice = toNumber(item.unitPrice ?? item.price ?? 0, 0);
-    const subtotal = toNumber(item.subtotal ?? unitPrice * qty, 0);
     const originalSubtotal = toNumber(item.originalSubtotal ?? unitPrice * qty, unitPrice * qty);
     const discountAllowed = item.discountAllowed === true || item.discountAllowed === 1 || item.discountAllowed === 'true';
-    const discountAmount = Math.max(0, originalSubtotal - subtotal);
+    const declaredDiscount = toNumber(item.discountAmount, Number.NaN);
+    const savedSubtotal = toNumber(item.subtotal, Number.NaN);
+    const discountAmount = Number.isFinite(declaredDiscount)
+      ? Math.min(originalSubtotal, Math.max(0, declaredDiscount))
+      : Number.isFinite(savedSubtotal)
+        ? Math.max(0, originalSubtotal - savedSubtotal)
+        : 0;
+    const subtotal = originalSubtotal - discountAmount;
     const storedPercent = toNumber(item.discountPercent, 0);
     const discountPercent = discountAmount > 0
       ? (storedPercent > 0 ? storedPercent : Math.round(discountAmount / originalSubtotal * 10000) / 100)
       : 0;
-    return { index: index + 1, service, qty, unitPrice, originalSubtotal, discountAllowed, discountPercent, discountAmount, subtotal };
+    const color = String(item.color || '').trim();
+    return { index: index + 1, service, color, qty, unitPrice, originalSubtotal, discountAllowed, discountPercent, discountAmount, subtotal };
   });
 
   const total = toNumber(
@@ -116,14 +123,18 @@ export function generateReceiptPDF(order, receiptNumber, receiptToken) {
       const label = doc.splitTextToSize(`${item.service} x ${item.qty}`, pageWidth - 39);
       doc.setFont('helvetica', 'bold');
       doc.text(label, 6, y);
-      doc.text(formatKES(item.subtotal), pageWidth - 6, y, { align: 'right' });
+      doc.text(`Final: ${formatKES(item.subtotal)}`, pageWidth - 6, y, { align: 'right' });
       y += label.length * 3.5;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
-      doc.text(`${item.qty} x ${formatKES(item.unitPrice)}`, 6, y);
+      doc.text(`${item.qty} x ${formatKES(item.unitPrice)} = ${formatKES(item.originalSubtotal)}`, 6, y);
       y += 3.5;
+      if (item.color) {
+        doc.text(`Color: ${item.color}`, 6, y);
+        y += 3.5;
+      }
       const discountText = item.discountAmount > 0
-        ? `Discount (${item.discountPercent}%): -${formatKES(item.discountAmount)}`
+        ? `Discount: -${formatKES(item.discountAmount)}`
         : 'No discount';
       doc.text(discountText, 6, y);
       y += 4;
@@ -186,8 +197,8 @@ export function buildReceiptHTML(receiptLike) {
     .map(
       (item) => `
       <div class="receipt-line">
-        <span class="receipt-item-name">${escapeHtml(item.service)} x ${item.qty}<small>${item.qty} x ${escapeHtml(formatKES(item.unitPrice))}</small><small>${item.discountAmount > 0 ? `Discount (${escapeHtml(item.discountPercent)}%): -${escapeHtml(formatKES(item.discountAmount))}` : 'No discount'}</small></span>
-        <b>${escapeHtml(formatKES(item.subtotal))}</b>
+        <span class="receipt-item-name">${escapeHtml(item.service)} x ${item.qty}<small>${item.color ? `Color: ${escapeHtml(item.color)}` : ''}</small><small>${item.qty} x ${escapeHtml(formatKES(item.unitPrice))} = ${escapeHtml(formatKES(item.originalSubtotal))}</small><small>${item.discountAmount > 0 ? `Discount: -${escapeHtml(formatKES(item.discountAmount))}` : 'No discount'}</small></span>
+        <b>Final: ${escapeHtml(formatKES(item.subtotal))}</b>
       </div>`
     )
     .join('');

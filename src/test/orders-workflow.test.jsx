@@ -92,6 +92,9 @@ describe('booking ready, payment, and receipt workflow', () => {
     const statusSelect = screen.getByRole('combobox', { name: /booking status/i });
     await user.selectOptions(statusSelect, 'ready_for_collection');
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Ready for collection?');
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('their laundry items are ready and can now be collected');
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('0712345678');
+    expect(within(screen.getByRole('alertdialog')).getByRole('link', { name: '0712345678' })).toHaveAttribute('href', 'tel:0712345678');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(mockFetch.mock.calls.some(([url, options]) => String(url).endsWith('/api/admin/requests/booking-1') && options?.method === 'PATCH')).toBe(false);
 

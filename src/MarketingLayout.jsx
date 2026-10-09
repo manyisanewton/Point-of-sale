@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, Menu, X, Sun, Moon, LogIn, Phone, MapPin, Mail } from 'lucide-react';
+import { Menu, X, Sun, Moon, LogIn, Phone, MapPin, Mail } from 'lucide-react';
 import { useAuth } from './AuthContext.jsx';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './MarketingLayout.css';
@@ -141,9 +141,6 @@ function Footer() {
             </span>
           </div>
           <p>Professional laundry and garment care in Kitengela, Kenya. Wash & fold, dry cleaning, ironing, and pickup & delivery.</p>
-          <a className="footer-cta" href={business.whatsapp} target="_blank" rel="noopener noreferrer">
-            Book a pickup <ArrowUpRight size={18} />
-          </a>
         </div>
         <div className="footer-column">
           <h3>Services</h3>

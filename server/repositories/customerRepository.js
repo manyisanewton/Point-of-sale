@@ -82,23 +82,6 @@ export const customerRepository = {
         )
       ON CONFLICT("clientId") DO NOTHING
     `;
-    // Merge legacy duplicates: one row per normalized phone, preferring a
-    // manually created entry over an auto-derived server_ row.
-    await prisma.$executeRaw`
-      DELETE FROM "customers" AS doomed
-      WHERE EXISTS (
-        SELECT 1 FROM "customers" AS keeper
-        WHERE REPLACE(REPLACE(TRIM(keeper."phone"), ' ', ''), '-', '') = REPLACE(REPLACE(TRIM(doomed."phone"), ' ', ''), '-', '')
-          AND (
-            keeper."createdAt" < doomed."createdAt"
-            OR (keeper."createdAt" = doomed."createdAt" AND keeper."id" < doomed."id")
-          )
-          AND (
-            keeper."clientId" NOT LIKE 'server\_%' ESCAPE '\'
-            OR doomed."clientId" LIKE 'server\_%' ESCAPE '\'
-          )
-      )
-    `;
     return prisma.$queryRaw`
       SELECT "id", "clientId", "name", "phone", "email", "servedBy", "gender", "createdAt", "updatedAt"
       FROM "customers"

@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowUpRight,
+  Banknote,
   Check,
   ClipboardList,
-  DollarSign,
-  Eye,
+  Clock3,
+  Plus,
   Search,
   Trash2,
-  TrendingUp,
+  Users,
   X,
 } from 'lucide-react';
+import './ReportsPage.css';
 
 function normalizePriceGroups(groups = []) {
   return groups.map((group) => ({
@@ -212,14 +214,32 @@ export default function AdminDashboard() {
   if (!data) return null;
 
   const max = Math.max(1, ...data.daily.map((day) => day.count));
+  const todayLabel = new Intl.DateTimeFormat('en-KE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Africa/Nairobi',
+  }).format(new Date());
+  const activeOrders = data.stats.active ?? data.requests.filter(
+    (request) => !['completed', 'cancelled'].includes(request.status)
+  ).length;
+  const todayRevenue = data.stats.todayRevenue ?? data.requests
+    .filter((request) => request.paymentStatus === 'paid')
+    .reduce((sum, request) => sum + Number(request.estimatedTotal || 0), 0);
   return (
     <div className="dashboard">
       <div>
         <header className="dash-header">
           <div>
-            <p className="eyebrow">Business dashboard</p>
-            <h1>{tab[0].toUpperCase() + tab.slice(1)}</h1>
+            <p className="eyebrow">{todayLabel}</p>
+            <h1>{tab === 'overview' ? 'Good day, Open Doors' : tab[0].toUpperCase() + tab.slice(1)}</h1>
+            {tab === 'overview' && <p className="dash-subtitle">Here is how your laundromat is doing today.</p>}
           </div>
+          {tab === 'overview' && (
+            <button className="dash-new-order" type="button" onClick={() => navigate('/new-order')}>
+              <Plus size={18} /> New order
+            </button>
+          )}
         </header>
         {message && <p className="admin-message success">{message}</p>}
         {loadError && (
@@ -230,42 +250,47 @@ export default function AdminDashboard() {
         {tab === 'overview' && (
           <>
             <section className="stat-grid">
-              <article>
-                <ClipboardList size={28} />
-                <span>Today's requests</span>
-                <b>{data.stats.today}</b>
+              <article className="stat-card stat-card-blue">
+                <span className="stat-icon"><Banknote size={22} /></span>
+                <div><span>Today's revenue</span><b>KSh {todayRevenue.toLocaleString()}</b><small>{data.stats.today} orders today</small></div>
               </article>
-              <article>
-                <TrendingUp size={28} />
-                <span>New requests</span>
-                <b>{data.stats.new}</b>
+              <article className="stat-card stat-card-amber">
+                <span className="stat-icon"><Clock3 size={22} /></span>
+                <div><span>Active orders</span><b>{activeOrders}</b><small>{data.stats.ready || 0} ready for collection</small></div>
               </article>
-              <article>
-                <Check size={18} />
-                <span>Completed</span>
-                <b>{data.stats.completed}</b>
+              <article className="stat-card stat-card-green">
+                <span className="stat-icon"><Check size={22} /></span>
+                <div><span>Completed</span><b>{data.stats.completed}</b><small>All-time finished orders</small></div>
               </article>
-              <article>
-                <DollarSign size={28} />
-                <span>Total requests</span>
-                <b>{data.stats.total}</b>
+              <article className="stat-card stat-card-violet">
+                <span className="stat-icon"><Users size={22} /></span>
+                <div><span>Customers</span><b>{data.customers?.length || 0}</b><small>{data.stats.pendingPayments || 0} pending payments</small></div>
               </article>
             </section>
-            <section className="dash-box">
-              <div className="box-title">
-                <div>
-                  <h2>Requests this week</h2>
-                  <p>Daily pickup and service enquiries</p>
+            <section className="dashboard-overview-grid">
+              <div className="dash-box dashboard-chart-card">
+                <div className="box-title">
+                  <div>
+                    <h2>Weekly orders</h2>
+                    <p>Orders received over the last seven days</p>
+                  </div>
+                  <span className="dashboard-total-pill">{data.daily.reduce((sum, day) => sum + day.count, 0)} total</span>
+                </div>
+                <div className="bar-chart">
+                  {data.daily.map((day) => (
+                    <div className="bar-item" key={day.date}>
+                      <b>{day.count}</b>
+                      <span style={{ height: `${Math.max(8, (day.count / max) * 150)}px` }}></span>
+                      <small>{day.label}</small>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="bar-chart">
-                {data.daily.map((day) => (
-                  <div className="bar-item" key={day.date}>
-                    <b>{day.count}</b>
-                    <span style={{ height: `${Math.max(8, (day.count / max) * 170)}px` }}></span>
-                    <small>{day.label}</small>
-                  </div>
-                ))}
+              <div className="dash-box dashboard-quick-card">
+                <div className="box-title"><div><h2>Quick actions</h2><p>Common daily tasks</p></div></div>
+                <button onClick={() => navigate('/new-order')}><Plus size={18} /><span><b>Create an order</b><small>Start a new walk-in sale</small></span><ArrowUpRight size={17} /></button>
+                <button onClick={() => navigate('/orders')}><ClipboardList size={18} /><span><b>Manage orders</b><small>Update laundry progress</small></span><ArrowUpRight size={17} /></button>
+                <button onClick={() => navigate('/customers')}><Users size={18} /><span><b>Customer directory</b><small>Find and manage customers</small></span><ArrowUpRight size={17} /></button>
               </div>
             </section>
             <Recent
@@ -488,7 +513,7 @@ export default function AdminDashboard() {
   );
 }
 
-function Recent({ requests, onStatus, onDelete }) {
+function Recent({ requests, onDelete }) {
   const [viewing, setViewing] = useState(null);
   const navigate = useNavigate();
 
@@ -500,6 +525,21 @@ function Recent({ requests, onStatus, onDelete }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [viewing]);
+
+  const reportRows = requests.map((item) => ({
+    ...item,
+    day: String(item.createdAt || '').slice(0, 10) || '—',
+    services: item.items?.length
+      ? item.items.map((service) => ({
+          name: service.service || service.name || 'Service',
+          quantity: Number(service.kg ?? service.quantity ?? 1) || 1,
+        }))
+      : [{ name: item.service || 'Service', quantity: 1 }],
+    paymentState: String(item.paymentStatus || 'pending').toLowerCase() === 'paid'
+      ? 'paid'
+      : 'pending',
+    amount: Number(item.estimatedTotal || 0),
+  }));
 
   return (
     <section className="dash-box request-list">
@@ -516,49 +556,45 @@ function Recent({ requests, onStatus, onDelete }) {
           <p>New customer submissions will appear here.</p>
         </div>
       ) : (
-        requests.map((item) => (
-          <article key={item.id}>
-            <div>
-              <b>{item.name}</b>
-              <span>
-                {item.phone} · {item.service}
-              </span>
-              <small>
-                {item.receiptNumber || 'Legacy request'} ·{' '}
-                {item.paymentMethod || 'Payment not selected'} ·{' '}
-                {new Date(item.createdAt).toLocaleString()}
-              </small>
-            </div>
-            <div className="request-actions">
-              <button className="view-request" onClick={() => setViewing(item)}>
-                <Eye size={16} /> View
-              </button>
-              {item.receiptToken && (
-                <button
-                  onClick={() => navigate(`/receipt/${item.receiptToken}`)}
-                  className="receipt-link-button"
-                >
-                  Receipt
-                </button>
-              )}
-              <select value={item.status} onChange={(e) => onStatus(item.id, e.target.value)}>
-                <option value="new">New</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              {item.status === 'completed' && (
-                <button
-                  className="delete-request"
-                  onClick={() => onDelete(item.id)}
-                  aria-label={`Remove completed request from ${item.name}`}
-                >
-                  <Trash2 size={16} /> Remove
-                </button>
-              )}
-            </div>
-          </article>
-        ))
+        <div className="rpt-table-card dashboard-request-report">
+          <div className="rpt-table-wrap">
+            <table className="rpt-table">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Customer</th><th>Services</th><th>Contact</th>
+                  <th>Served By</th><th>Payment Status</th><th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportRows.map((item) => (
+                  <tr key={item.id}>
+                    <td className="rpt-date">{item.day}</td>
+                    <td className="rpt-customer">
+                      <button
+                        className="report-view-button"
+                        onClick={() => setViewing(item)}
+                        aria-label={`View request for ${item.name}`}
+                      >
+                        {item.name || 'Walk-in'}
+                      </button>
+                    </td>
+                    <td>
+                      <ul className="rpt-services">
+                        {item.services.map((service, index) => (
+                          <li key={`${item.id}-${index}`}>{service.name} ×{service.quantity}{item.items?.[index]?.color ? ` · ${item.items[index].color}` : ''}</li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="rpt-contact">{item.phone || '—'}</td>
+                    <td>{item.servedBy || '—'}</td>
+                    <td><span className={`rpt-pill ${item.paymentState}`}>{item.paymentState === 'paid' ? 'Paid' : 'Pending'}</span></td>
+                    <td className="num">KSh {item.amount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
       {viewing && (
         <div
@@ -598,7 +634,7 @@ function Recent({ requests, onStatus, onDelete }) {
                 {viewing.items.map((service, index) => (
                   <div key={index}>
                     <span>
-                      {service.service} × {service.kg}
+                      {service.service} × {service.kg}{service.color ? ` · ${service.color}` : ''}
                     </span>
                     <b>KSh {service.subtotal.toLocaleString()}</b>
                   </div>

@@ -125,6 +125,7 @@ export default function ReceiptPage() {
           <section className="receipt-lines">
             <div className="receipt-line heading">
               <span>Service</span>
+              <span>Color</span>
               <span>Kg / Qty</span>
               <span>Price</span>
               <span>Subtotal</span>
@@ -132,6 +133,7 @@ export default function ReceiptPage() {
             {(receipt.items || []).map((item, index) => (
               <div className="receipt-line" key={index}>
                 <b>{item.service}</b>
+                <span>{item.color || '—'}</span>
                 <span>{item.kg}</span>
                 <span>KSh {item.priceLabel}</span>
                 <b>KSh {item.subtotal.toLocaleString()}</b>

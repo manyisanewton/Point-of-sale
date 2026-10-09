@@ -7,6 +7,7 @@ import { addOrderTransaction, updateLocalOrder, saveReceiptToLocal } from './lib
 import { generateReceiptPDF, downloadPDFReceipt, printReceipt } from './lib/receipt.js';
 
 const KENYAN_PHONE = /^(?:\+?254|0)(?:7|1)\d{8}$/;
+const ITEM_COLORS = ['White', 'Black', 'Grey', 'Blue', 'Red', 'Green', 'Yellow', 'Orange', 'Pink', 'Purple', 'Brown', 'Cream', 'Multicolour'];
 
 function localReceiptNumber(orderId) {
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -34,6 +35,7 @@ export default function POSSalePage() {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [qtyByService, setQtyByService] = useState({});
+  const [colorByService, setColorByService] = useState({});
   const [customerName, setCustomerName] = useState(location.state?.customerName || '');
   const [customerPhone, setCustomerPhone] = useState(location.state?.customerPhone || '');
   const [servedBy, setServedBy] = useState(location.state?.servedBy || '');
@@ -70,9 +72,16 @@ export default function POSSalePage() {
   const count = cartCount(cart);
 
   function handleAdd(service) {
+    const color = colorByService[service.serviceName] || '';
+    if (!color) {
+      setError(`Select an item color for ${service.serviceName} before adding it.`);
+      return;
+    }
+    setError('');
     const qty = clampQty(qtyByService[service.serviceName] || 1);
-    setCart((prev) => addToCart(prev, service, qty));
+    setCart((prev) => addToCart(prev, service, qty, color));
     setQtyByService((prev) => ({ ...prev, [service.serviceName]: 1 }));
+    setColorByService((prev) => ({ ...prev, [service.serviceName]: '' }));
   }
 
   async function handleComplete() {
@@ -155,6 +164,7 @@ export default function POSSalePage() {
           discountPercent: i.discountPercent,
           discountAmount: i.discountAmount,
           subtotal: i.subtotal,
+          color: i.color,
         })),
         createdAt: order.createdAt,
       };
@@ -324,6 +334,18 @@ export default function POSSalePage() {
                   <b>{s.serviceName}</b>
                   <span>{s.category}</span>
                   <span className="price">KSh {Number(s.unitPrice).toLocaleString()}</span>
+                  <label className="service-color-field">
+                    <span>Item color <strong>*</strong></span>
+                    <select
+                      value={colorByService[s.serviceName] || ''}
+                      onChange={(event) => setColorByService((prev) => ({ ...prev, [s.serviceName]: event.target.value }))}
+                      aria-label={`Item color for ${s.serviceName}`}
+                      required
+                    >
+                      <option value="">Select color</option>
+                      {ITEM_COLORS.map((color) => <option key={color} value={color}>{color}</option>)}
+                    </select>
+                  </label>
                   <div className="qty-controls">
                     <button
                       type="button"
@@ -369,6 +391,7 @@ export default function POSSalePage() {
                 <div key={l.key} className="cart-row">
                   <div>
                     <b>{l.service}</b>
+                    <span className="cart-item-color">Color: <b>{l.color}</b></span>
                     <div className="qty-controls" style={{ marginTop: 'var(--space-1)' }}>
                       <button type="button" aria-label={`Decrease ${l.service}`} onClick={() => setCart((p) => setLineQty(p, l.key, l.qty - 1))}>
                         −
@@ -384,7 +407,7 @@ export default function POSSalePage() {
                         <select
                           aria-label={`Discount allowed for ${l.service}`}
                           value={l.discountAllowed ? 'yes' : 'no'}
-                          onChange={(event) => setCart((p) => setLineDiscount(p, l.key, event.target.value === 'yes', event.target.value === 'yes' ? l.discountPercent : 0))}
+                          onChange={(event) => setCart((p) => setLineDiscount(p, l.key, event.target.value === 'yes', event.target.value === 'yes' ? l.discountAmount : 0))}
                         >
                           <option value="no">No</option>
                           <option value="yes">Yes</option>
@@ -392,14 +415,14 @@ export default function POSSalePage() {
                       </label>
                       {l.discountAllowed && (
                         <label>
-                          Discount %
+                          Discount amount (KSh)
                           <input
-                            aria-label={`Discount percentage for ${l.service}`}
+                            aria-label={`Discount amount in shillings for ${l.service}`}
                             type="number"
                             min="0"
-                            max="100"
-                            step="0.01"
-                            value={l.discountPercent}
+                            max={l.originalSubtotal}
+                            step="1"
+                            value={l.discountAmount}
                             onChange={(event) => setCart((p) => setLineDiscount(p, l.key, true, event.target.value))}
                           />
                         </label>
@@ -407,8 +430,8 @@ export default function POSSalePage() {
                     </div>
                     <div className="cart-line-price-detail">
                       <span>Original: KSh {(l.originalSubtotal ?? l.unitPrice * l.qty).toLocaleString()}</span>
-                      {l.discountAllowed && l.discountPercent > 0 && (
-                        <span>{l.discountPercent}% off · KSh {l.discountAmount.toLocaleString()} saved</span>
+                      {l.discountAllowed && l.discountAmount > 0 && (
+                        <span>KSh {l.discountAmount.toLocaleString()} off</span>
                       )}
                     </div>
                   </div>
