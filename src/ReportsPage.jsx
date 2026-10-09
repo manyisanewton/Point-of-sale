@@ -291,7 +291,7 @@ export default function ReportsPage() {
     doc.line(margin, 27, pageWidth - margin, 27);
 
     // Center the official laundromat stamp on every statement page.
-    function drawStamp(stampY, watermark = false) {
+    function drawStamp(stampY) {
       const stampWidth = 38;
       const stampHeight = 19;
       const stampX = (pageWidth - stampWidth) / 2;
@@ -311,8 +311,6 @@ export default function ReportsPage() {
       doc.setFontSize(5);
       doc.text(pdfText(printedAt.toLocaleDateString('en-KE')), pageWidth / 2, stampY + 16, { align: 'center' });
     }
-    drawStamp((pageHeight - 19) / 2);
-
     doc.setFontSize(6.5);
     doc.setTextColor(40, 55, 72);
     doc.text(`Statement period: ${pdfText(rangeLabel)}`, margin, 57);
@@ -361,7 +359,6 @@ export default function ReportsPage() {
         doc.setDrawColor(18, 58, 109);
         doc.setLineWidth(0.5);
         doc.line(margin, 19, pageWidth - margin, 19);
-        drawStamp((pageHeight - 19) / 2);
         y = 119;
       }
       doc.setTextColor(18, 58, 109);
@@ -437,6 +434,11 @@ export default function ReportsPage() {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(18, 58, 109);
     doc.text(totalLabel, pageWidth - margin - 4, y, { align: 'right' });
+    // Stamp each page after its content is laid out so row fills cannot cover it.
+    for (let pageNumber = 1; pageNumber <= doc.getNumberOfPages(); pageNumber += 1) {
+      doc.setPage(pageNumber);
+      drawStamp((pageHeight - 19) / 2);
+    }
     const filename = `open-doors-statement-${from || 'start'}-to-${to || 'end'}.pdf`;
     doc.save(filename);
   }
