@@ -255,6 +255,23 @@ app.patch('/api/admin/requests/:id', requireAdmin, validateStatusUpdate, async (
   }
 });
 
+// Select the individual items in a booking that will be handled by a subcontractor.
+app.patch('/api/admin/requests/:id/sub-contract-items', requireAdmin, async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body?.itemIds) || req.body.itemIds.some((itemId) => typeof itemId !== 'string')) {
+      return res.status(400).json({ error: 'Select valid booking items for sub contract.' });
+    }
+    const request = await bookingRepository.getBookingById(req.params.id);
+    if (!request) return res.status(404).json({ error: 'Request not found.' });
+
+    const updatedRequest = await bookingRepository.updateSubContractedItems(req.params.id, [...new Set(req.body.itemIds)]);
+    res.json(updatedRequest);
+  } catch (error) {
+    if (error.message.includes('do not belong')) return res.status(400).json({ error: error.message });
+    next(error);
+  }
+});
+
 app.post('/api/admin/requests/:id/payment', requireAdmin, async (req, res, next) => {
   try {
     const method = String(req.body?.method || '');

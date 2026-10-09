@@ -4050,6 +4050,67 @@ footer p {
   white-space: nowrap;
 }
 
+.booking-sub-contract-cell {
+  text-align: center;
+  min-width: 96px;
+}
+
+.booking-sub-contract-cell span {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+
+.booking-sub-contract-cell input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--info);
+  cursor: pointer;
+}
+
+.booking-sub-contract-cell input:disabled {
+  cursor: wait;
+}
+
+.sub-contract-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.sub-contract-items {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  margin: 18px 0;
+  overflow-y: auto;
+}
+
+.sub-contract-items label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sub-contract-items input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--info);
+}
+
+.sub-contract-items span,
+.sub-contract-items small {
+  display: block;
+}
+
+.sub-contract-items small {
+  margin-top: 3px;
+  color: var(--fg-muted);
+}
+
 .booking-status-select {
   max-width: 170px;
   min-height: 30px;

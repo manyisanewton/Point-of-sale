@@ -11,6 +11,7 @@ async function ensureBookingItemDiscountColumns() {
     ['discountPercent', 'REAL NOT NULL DEFAULT 0'],
     ['discountAmount', 'INTEGER NOT NULL DEFAULT 0'],
     ['color', 'TEXT NOT NULL DEFAULT \'\''],
+    ['subContracted', 'INTEGER NOT NULL DEFAULT 0'],
   ];
   for (const [name, definition] of additions) {
     if (!columnNames.has(name)) {
@@ -45,7 +46,7 @@ async function attachItemDiscounts(request) {
     SELECT "servedBy", "paymentReference" FROM "booking_requests" WHERE "id" = ${request.id}
   `;
   const discounts = await prisma.$queryRaw`
-    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount", "color"
+    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount", "color", "subContracted"
     FROM "booking_items"
     WHERE "requestId" = ${request.id}
   `;
@@ -60,6 +61,7 @@ async function attachItemDiscounts(request) {
         ...item,
         ...(discount || {}),
         discountAllowed: discount?.discountAllowed === true || discount?.discountAllowed === 1,
+        subContracted: discount?.subContracted === true || discount?.subContracted === 1n || discount?.subContracted === 1,
       };
     }),
   };
@@ -227,6 +229,7 @@ export const bookingRepository = {
   // Get a booking request by receipt token (public receipt page)
   async getBookingByToken(token) {
     await ensureBookingItemDiscountColumns();
+    await ensureBookingServedByColumn();
     const request = await prisma.bookingRequest.findUnique({
       where: { receiptToken: token },
       include: { items: true },
@@ -254,6 +257,7 @@ export const bookingRepository = {
   // Get a booking request by ID (admin)
   async getBookingById(id) {
     await ensureBookingItemDiscountColumns();
+    await ensureBookingServedByColumn();
     const request = await prisma.bookingRequest.findUnique({
       where: { id },
       include: { items: true },
@@ -264,6 +268,7 @@ export const bookingRepository = {
   // Get all booking requests with pagination
   async getAllBookings({ page = 1, limit = 20, status } = {}) {
     await ensureBookingItemDiscountColumns();
+    await ensureBookingServedByColumn();
     const skip = (page - 1) * limit;
     const where = status ? { status } : {};
     
@@ -284,6 +289,7 @@ export const bookingRepository = {
   // Get recent bookings for dashboard
   async getRecentBookings(limit = 5) {
     await ensureBookingItemDiscountColumns();
+    await ensureBookingServedByColumn();
     const requests = await prisma.bookingRequest.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
@@ -380,6 +386,29 @@ export const bookingRepository = {
       throw new Error(`Invalid status: ${status}`);
     }
     await prisma.bookingRequest.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    return this.getBookingById(id);
+  },
+
+  async updateSubContractedItems(id, itemIds) {
+    await ensureBookingItemDiscountColumns();
+    const bookingItems = await prisma.$queryRaw`
+      SELECT "id" FROM "booking_items" WHERE "requestId" = ${id}
+    `;
+    const validIds = new Set(bookingItems.map((item) => item.id));
+    if (itemIds.some((itemId) => !validIds.has(itemId))) {
+      throw new Error('One or more selected items do not belong to this booking.');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE "booking_items" SET "subContracted" = 0 WHERE "requestId" = ${id}
+      `;
+      for (const itemId of itemIds) {
+        await tx.$executeRaw`
+          UPDATE "booking_items" SET "subContracted" = 1 WHERE "id" = ${itemId} AND "requestId" = ${id}
+        `;
+      }
+    });
     return this.getBookingById(id);
   },
 

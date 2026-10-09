@@ -28,8 +28,8 @@ const booking = {
   paymentMethod: 'Unpaid',
   status: 'ironing',
   items: [
-    { id: 'item-1', service: 'Curtains per kg', kg: 1, unitPrice: 300, originalSubtotal: 300, subtotal: 300 },
-    { id: 'item-2', service: 'Duvet cover', kg: 2, unitPrice: 1200, originalSubtotal: 2400, subtotal: 2400 },
+    { id: 'item-1', service: 'Curtains per kg', color: 'Blue', kg: 1, unitPrice: 300, originalSubtotal: 300, subtotal: 300 },
+    { id: 'item-2', service: 'Duvet cover', color: 'White', kg: 2, unitPrice: 1200, originalSubtotal: 2400, subtotal: 2400 },
   ],
   createdAt: '2026-10-02T08:00:00.000Z',
 };
@@ -48,7 +48,7 @@ describe('booking ready, payment, and receipt workflow', () => {
     mockFetch.mockReset();
     refresh.mockReset();
     readyBooking = { ...booking, status: 'ready_for_collection' };
-    paidBooking = { ...readyBooking, paymentStatus: 'paid', paymentMethod: 'M-Pesa', paymentReference: 'QWE123456' };
+    paidBooking = { ...readyBooking, paymentStatus: 'paid', paymentMethod: 'M-Pesa', paymentReference: 'QWE1234567' };
     useOfflineOrders.mockReturnValue({ orders: [booking], loading: false, refresh });
     upsertServerOrders.mockReset().mockResolvedValue({ mirrored: 1 });
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true });
@@ -57,8 +57,15 @@ describe('booking ready, payment, and receipt workflow', () => {
         return Promise.resolve(jsonResponse({ requests: [booking] }));
       }
       if (String(url).endsWith('/api/admin/requests/booking-1/payment')) {
-        expect(JSON.parse(options.body)).toEqual({ method: 'M-Pesa', reference: 'QWE123456' });
+        expect(JSON.parse(options.body)).toEqual({ method: 'M-Pesa', reference: 'QWE1234567' });
         return Promise.resolve(jsonResponse(paidBooking));
+      }
+      if (String(url).endsWith('/api/admin/requests/booking-1/sub-contract-items')) {
+        expect(JSON.parse(options.body)).toEqual({ itemIds: ['item-1'] });
+        return Promise.resolve(jsonResponse({
+          ...booking,
+          items: booking.items.map((item) => ({ ...item, subContracted: item.id === 'item-1' })),
+        }));
       }
       if (String(url).endsWith('/api/admin/requests/booking-1')) {
         expect(JSON.parse(options.body)).toEqual({ status: 'ready_for_collection' });
@@ -87,7 +94,26 @@ describe('booking ready, payment, and receipt workflow', () => {
     expect(screen.getByRole('heading', { name: 'Bookings' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Booking' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Served By' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Sub Contract' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: `Choose sub contract items for ${booking.receiptNumber}` }));
+    const subContractDialog = screen.getByRole('dialog', { name: 'Choose sub contract items' });
+    expect(subContractDialog).toHaveTextContent('Ann Kamau');
+    expect(subContractDialog).toHaveTextContent('Curtains per kg');
+    expect(subContractDialog).toHaveTextContent('Duvet cover');
+    await user.click(within(subContractDialog).getByRole('checkbox', { name: /Curtains per kg/i }));
+    await user.click(within(subContractDialog).getByRole('button', { name: 'Save Sub Contract Items' }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/admin/requests/booking-1/sub-contract-items',
+      expect.objectContaining({ method: 'PATCH' }),
+    ));
+    await waitFor(() => expect(window.open).toHaveBeenCalled());
+    expect(printWindow.document.write).toHaveBeenCalledWith(expect.stringContaining('SUB CONTRACT RECEIPT'));
+    expect(printWindow.document.write).toHaveBeenCalledWith(expect.stringContaining('Receipt No:'));
+    expect(printWindow.document.write).toHaveBeenCalledWith(expect.stringContaining('Service: <b>Curtains per kg</b>'));
+    expect(printWindow.document.write).toHaveBeenCalledWith(expect.stringContaining('Color: <b>Blue</b>'));
+    expect(printWindow.document.write).not.toHaveBeenCalledWith(expect.stringContaining('Payment:'));
 
     const statusSelect = screen.getByRole('combobox', { name: /booking status/i });
     await user.selectOptions(statusSelect, 'ready_for_collection');
@@ -108,9 +134,9 @@ describe('booking ready, payment, and receipt workflow', () => {
     expect(within(details).getByRole('link', { name: /notify customer via whatsapp/i })).toHaveAttribute('href', expect.stringContaining('wa.me/254712345678'));
 
     await user.selectOptions(within(details).getByLabelText('Payment method'), 'M-Pesa');
-    await user.type(within(details).getByLabelText('M-Pesa transaction code'), 'QWE123456');
+    await user.type(within(details).getByLabelText('M-Pesa transaction code'), 'QWE1234567');
     await user.click(within(details).getByRole('button', { name: /record payment/i }));
-    await waitFor(() => expect(within(details).getByText(/Paid earlier · M-Pesa · QWE123456/)).toBeInTheDocument());
+    await waitFor(() => expect(within(details).getByText(/Paid earlier · M-Pesa · QWE1234567/)).toBeInTheDocument());
     expect(within(details).getByRole('button', { name: /print receipt/i })).toBeInTheDocument();
     const printPrompt = await screen.findByRole('alertdialog', { name: 'Payment recorded' });
     expect(printPrompt).toHaveTextContent('Would you like to print the receipt');

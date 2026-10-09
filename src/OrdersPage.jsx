@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useOfflineOrders } from './hooks/useOffline.js';
 import { upsertServerOrders } from './lib/db.js';
-import { generateReceiptPDF, downloadPDFReceipt, printReceipt } from './lib/receipt.js';
+import { generateReceiptPDF, downloadPDFReceipt, printReceipt, printSubContractReceipt } from './lib/receipt.js';
 
 const STATUSES = [
   { value: 'all', label: 'All' },
@@ -45,6 +45,9 @@ export default function OrdersPage() {
   const [paymentError, setPaymentError] = useState('');
   const [printPromptBooking, setPrintPromptBooking] = useState(null);
   const [savingStatus, setSavingStatus] = useState(false);
+  const [subContractBooking, setSubContractBooking] = useState(null);
+  const [subContractItemIds, setSubContractItemIds] = useState([]);
+  const [savingSubContract, setSavingSubContract] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [deletingBookings, setDeletingBookings] = useState(false);
   const readyConfirmationInFlight = useRef(false);
@@ -119,6 +122,60 @@ export default function OrdersPage() {
       return;
     }
     await saveStatus(order, status);
+  }
+
+  function openSubContractItems(order) {
+    setSubContractBooking(order);
+    setSubContractItemIds((order.items || []).filter((item) => item.subContracted).map((item) => item.id));
+  }
+
+  function toggleSubContractItem(itemId) {
+    setSubContractItemIds((current) => current.includes(itemId)
+      ? current.filter((id) => id !== itemId)
+      : [...current, itemId]);
+  }
+
+  async function saveSubContractItems() {
+    if (!subContractBooking) return;
+    setNotice('');
+    setSavingSubContract(true);
+    try {
+      if (subContractBooking.externalId) {
+        const response = await fetch(`/api/admin/requests/${encodeURIComponent(subContractBooking.externalId)}/sub-contract-items`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemIds: subContractItemIds }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not save the sub contract items.');
+        await upsertServerOrders([result]);
+        refresh();
+        setSubContractBooking(null);
+        handlePrintSubContractReceipt(result);
+        return;
+      }
+
+      const { updateLocalOrder } = await import('./lib/db.js');
+      const items = (subContractBooking.items || []).map((item) => ({
+        ...item,
+        subContracted: subContractItemIds.includes(item.id),
+      }));
+      await updateLocalOrder(subContractBooking.id, { items }, { markPending: false });
+      refresh();
+      setSubContractBooking(null);
+      handlePrintSubContractReceipt({ ...subContractBooking, items });
+      setNotice('The sub contract items were saved on this device. They can be updated on the server after the booking syncs.');
+    } catch (error) {
+      setNotice(error.message || 'Could not save the sub contract items. Please try again.');
+    } finally {
+      setSavingSubContract(false);
+    }
+  }
+
+  function handlePrintSubContractReceipt(booking) {
+    if (!printSubContractReceipt(booking)) {
+      setNotice('The print window was blocked. Allow pop-ups, then print the sub contract receipt again.');
+    }
   }
 
   async function deleteAllBookings() {
@@ -279,6 +336,7 @@ export default function OrdersPage() {
                   <th scope="col">Customer</th>
                   <th scope="col">Service</th>
                   <th scope="col">Items</th>
+                  <th scope="col">Sub Contract</th>
                   <th scope="col">Amount</th>
                   <th scope="col">Served By</th>
                   <th scope="col">Action</th>
@@ -296,6 +354,15 @@ export default function OrdersPage() {
                       <td>{order.customerName || order.name || 'Walk-in'}</td>
                       <td>{service}</td>
                       <td>{items.length}</td>
+                      <td className="booking-sub-contract-cell">
+                        <input
+                          type="checkbox"
+                          checked={items.some((item) => item.subContracted)}
+                          onChange={() => openSubContractItems(order)}
+                          aria-label={`Choose sub contract items for ${order.receiptNumber || order.id}`}
+                        />
+                        <span>{items.filter((item) => item.subContracted).length}/{items.length}</span>
+                      </td>
                       <td className="booking-amount">KSh {(Number(order.totalAmount ?? order.estimatedTotal) || 0).toLocaleString()}</td>
                       <td>{order.servedBy || order.attendant || '—'}</td>
                       <td>
@@ -321,6 +388,32 @@ export default function OrdersPage() {
             </table>
           </div>
         </section>
+      )}
+      {subContractBooking && (
+        <div className="booking-dialog-backdrop">
+          <section className="booking-dialog sub-contract-dialog" role="dialog" aria-modal="true" aria-labelledby="sub-contract-title">
+            <h2 id="sub-contract-title">Choose sub contract items</h2>
+            <p>Select the items for <strong>{subContractBooking.customerName || subContractBooking.name || 'this customer'}</strong> that will be sent to a subcontractor.</p>
+            <div className="sub-contract-items">
+              {(subContractBooking.items || []).map((item, index) => (
+                <label key={item.id || index}>
+                  <input
+                    type="checkbox"
+                    checked={subContractItemIds.includes(item.id)}
+                    onChange={() => toggleSubContractItem(item.id)}
+                  />
+                  <span><strong>{item.service || item.name}</strong><small>Quantity: {item.kg ?? item.quantity ?? 1}</small></span>
+                </label>
+              ))}
+            </div>
+            <div className="booking-dialog-actions">
+              <button className="booking-dialog-secondary" type="button" onClick={() => setSubContractBooking(null)} disabled={savingSubContract}>Cancel</button>
+              <button className="booking-dialog-primary" type="button" onClick={saveSubContractItems} disabled={savingSubContract}>
+                {savingSubContract ? 'Saving…' : 'Save Sub Contract Items'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       {confirmingReady && (
         <div className="booking-dialog-backdrop">

@@ -362,6 +362,7 @@ export async function upsertServerOrders(serverRequests) {
       paymentMethod: req.paymentMethod || null,
       paymentReference: req.paymentReference || '',
       items: (req.items || []).map((i) => ({
+        id: i.id,
         name: i.service,
         service: i.service,
         color: i.color || '',
@@ -373,6 +374,7 @@ export async function upsertServerOrders(serverRequests) {
         discountAllowed: Boolean(i.discountAllowed),
         discountPercent: Number(i.discountPercent) || 0,
         discountAmount: Number(i.discountAmount) || 0,
+        subContracted: Boolean(i.subContracted),
         subtotal: i.subtotal,
       })),
       notes: req.notes || '',

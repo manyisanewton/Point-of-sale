@@ -295,3 +295,61 @@ export function printReceipt(receiptData) {
     return false;
   }
 }
+
+/** A deliberately simple handoff slip for items sent to a subcontractor. */
+export function buildSubContractReceiptHTML(booking = {}) {
+  const selectedItems = (booking.items || []).filter((item) => item.subContracted);
+  const receiptNumber = `${booking.receiptNumber || booking.id || 'SUB-CONTRACT'}-SC`;
+  const printedAt = new Date().toLocaleString('en-KE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Nairobi',
+    hour12: false,
+  });
+  const items = selectedItems.map((item) => `
+    <div class="item">
+      <div>Service: <b>${escapeHtml(item.service || item.name || 'Laundry item')}</b></div>
+      <div>Quantity: <b>${escapeHtml(item.kg ?? item.quantity ?? 1)}</b></div>
+      <div>Color: <b>${escapeHtml(item.color || 'Not recorded')}</b></div>
+    </div>
+  `).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sub Contract ${escapeHtml(receiptNumber)}</title><style>
+    @page { size: 80mm auto; margin: 4mm; }
+    body { width: 70mm; margin: 0 auto; color: #111; font-family: Arial, sans-serif; font-size: 12px; }
+    h1 { margin: 0; font-size: 17px; text-align: center; }
+    h2 { margin: 5px 0 12px; font-size: 13px; text-align: center; }
+    .details { line-height: 1.6; border-bottom: 1px dashed #555; padding-bottom: 8px; }
+    .item { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px dashed #999; }
+    .item div { line-height: 1.45; }
+  </style></head><body>
+    <h1>OPEN DOORS LAUNDROMAT</h1>
+    <h2>SUB CONTRACT RECEIPT</h2>
+    <div class="details">
+      <div>Receipt No: <b>${escapeHtml(receiptNumber)}</b></div>
+      <div>Date &amp; Time: ${escapeHtml(printedAt)}</div>
+      <div>Customer: ${escapeHtml(booking.name || booking.customerName || 'Walk-in')}</div>
+    </div>
+    ${items || '<p>No items selected.</p>'}
+  </body></html>`;
+}
+
+export function printSubContractReceipt(booking) {
+  try {
+    const printWindow = window.open('', '_blank', 'width=320,height=600');
+    if (!printWindow) return false;
+    printWindow.document.write(buildSubContractReceiptHTML(booking));
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      try {
+        printWindow.print();
+      } catch {
+        // The simple receipt remains visible if the browser blocks printing.
+      }
+    }, 400);
+    return true;
+  } catch {
+    return false;
+  }
+}
