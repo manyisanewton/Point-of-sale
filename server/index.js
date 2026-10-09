@@ -396,7 +396,7 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
         ? rawItems.map((it) => ({
             service: it.service || it.name || service,
             kg: Number(it.kg || it.quantity || 1),
-            color: String(it.color || '').trim().slice(0, 30),
+            color: String(it.color || '').trim().slice(0, 200),
             discountAllowed: it.discountAllowed === true,
             discountAmount: it.discountAmount == null ? undefined : Number(it.discountAmount),
             discountPercent: Number(it.discountPercent || 0),

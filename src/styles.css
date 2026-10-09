@@ -3751,6 +3751,12 @@ footer p {
   outline-offset: 1px;
 }
 
+.customer-existing-match {
+  color: var(--success, #16845b);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .customer-form-error {
   margin: var(--space-3) 0 0;
   color: var(--error);

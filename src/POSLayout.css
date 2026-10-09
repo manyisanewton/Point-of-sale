@@ -515,44 +515,66 @@
 
 .sale-layout {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
   gap: var(--space-5);
   align-items: start;
 }
 
+@media (min-width: 1101px) {
+  .sale-panel.cart-panel {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+
 .sale-panel {
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   background: var(--card-bg);
-  box-shadow: var(--shadow-hard);
-  padding: var(--space-4);
+  box-shadow: 0 5px 18px rgba(14, 37, 60, .08);
+  padding: clamp(16px, 1.5vw, 24px);
   min-width: 0;
 }
 
 .sale-panel h3 {
   margin: 0 0 var(--space-3);
-  font-size: var(--text-lg);
+  font-size: clamp(18px, 1.2vw, 22px);
 }
 
 .sale-services {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
 }
 
 .sale-service-card {
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   background: var(--bg-primary);
-  padding: var(--space-3);
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-height: 44px;
+  gap: 10px;
+  min-height: 260px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.sale-service-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 5px 14px rgba(14, 37, 60, .1);
+  transform: translateY(-1px);
+}
+
+.sale-service-card:focus-within {
+  position: relative;
+  z-index: 5;
 }
 
 .sale-service-card b {
-  font-size: var(--text-base);
+  font-size: 16px;
+  line-height: 1.35;
 }
 
 .sale-service-card span {
@@ -563,6 +585,7 @@
 .sale-service-card .price {
   color: var(--fg-primary);
   font-weight: 800;
+  font-size: 15px;
 }
 
 .service-color-field {
@@ -579,21 +602,87 @@
 
 .service-color-field strong { color: var(--error); }
 
-.service-color-field select {
+.service-color-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
   width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
-  border: 2px solid var(--input-border);
+  max-height: 230px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  box-shadow: 0 8px 20px rgba(10, 30, 55, .2);
+}
+
+.service-color-dropdown {
+  position: relative;
+}
+
+.service-color-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
   background: var(--input-bg);
   color: var(--input-fg);
+  text-align: left;
   font: inherit;
+  cursor: pointer;
 }
 
-.service-color-field select:focus {
-  outline: none;
+.service-color-trigger:hover,
+.service-color-trigger:focus-visible {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(47, 121, 173, 0.15);
+  outline: 2px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  outline-offset: 1px;
+}
+
+.service-color-trigger span:first-child {
+  color: var(--input-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-color-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--input-fg) !important;
+  font-size: 12px !important;
+  cursor: pointer;
+}
+
+.service-color-options input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.service-color-options .service-color-done {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  margin-top: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--primary);
+  color: #fff;
 }
 
 .cart-item-color {
@@ -760,6 +849,12 @@
   .sale-panel.cart-panel {
     position: sticky;
     bottom: 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  .sale-layout {
+    grid-template-columns: 1fr;
   }
 }
 

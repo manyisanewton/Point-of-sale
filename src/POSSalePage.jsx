@@ -35,7 +35,8 @@ export default function POSSalePage() {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [qtyByService, setQtyByService] = useState({});
-  const [colorByService, setColorByService] = useState({});
+  const [colorsByService, setColorsByService] = useState({});
+  const [openColorPicker, setOpenColorPicker] = useState('');
   const [customerName, setCustomerName] = useState(location.state?.customerName || '');
   const [customerPhone, setCustomerPhone] = useState(location.state?.customerPhone || '');
   const [servedBy, setServedBy] = useState(location.state?.servedBy || '');
@@ -72,16 +73,26 @@ export default function POSSalePage() {
   const count = cartCount(cart);
 
   function handleAdd(service) {
-    const color = colorByService[service.serviceName] || '';
-    if (!color) {
-      setError(`Select an item color for ${service.serviceName} before adding it.`);
+    const colors = colorsByService[service.serviceName] || [];
+    if (!colors.length) {
+      setError(`Select at least one item color for ${service.serviceName} before adding it.`);
       return;
     }
     setError('');
     const qty = clampQty(qtyByService[service.serviceName] || 1);
-    setCart((prev) => addToCart(prev, service, qty, color));
+    setCart((prev) => addToCart(prev, service, qty, colors.join(', ')));
     setQtyByService((prev) => ({ ...prev, [service.serviceName]: 1 }));
-    setColorByService((prev) => ({ ...prev, [service.serviceName]: '' }));
+    setColorsByService((prev) => ({ ...prev, [service.serviceName]: [] }));
+  }
+
+  function toggleServiceColor(serviceName, color) {
+    setColorsByService((current) => {
+      const colors = current[serviceName] || [];
+      return {
+        ...current,
+        [serviceName]: colors.includes(color) ? colors.filter((value) => value !== color) : [...colors, color],
+      };
+    });
   }
 
   async function handleComplete() {
@@ -334,18 +345,38 @@ export default function POSSalePage() {
                   <b>{s.serviceName}</b>
                   <span>{s.category}</span>
                   <span className="price">KSh {Number(s.unitPrice).toLocaleString()}</span>
-                  <label className="service-color-field">
-                    <span>Item color <strong>*</strong></span>
-                    <select
-                      value={colorByService[s.serviceName] || ''}
-                      onChange={(event) => setColorByService((prev) => ({ ...prev, [s.serviceName]: event.target.value }))}
-                      aria-label={`Item color for ${s.serviceName}`}
-                      required
-                    >
-                      <option value="">Select color</option>
-                      {ITEM_COLORS.map((color) => <option key={color} value={color}>{color}</option>)}
-                    </select>
-                  </label>
+                  <div className="service-color-field">
+                    <span>Item colors <strong>*</strong></span>
+                    <div className="service-color-dropdown">
+                      <button
+                        type="button"
+                        className="service-color-trigger"
+                        aria-expanded={openColorPicker === s.serviceName}
+                        aria-haspopup="true"
+                        aria-label={`Choose item colors for ${s.serviceName}`}
+                        onClick={() => setOpenColorPicker((current) => current === s.serviceName ? '' : s.serviceName)}
+                      >
+                        <span>{(colorsByService[s.serviceName] || []).join(', ') || 'Select colors'}</span>
+                        <span aria-hidden="true">▾</span>
+                      </button>
+                      {openColorPicker === s.serviceName && (
+                        <div className="service-color-options" role="group" aria-label={`Item colors for ${s.serviceName}`}>
+                          {ITEM_COLORS.map((color) => (
+                            <label key={color}>
+                              <input
+                                type="checkbox"
+                                checked={(colorsByService[s.serviceName] || []).includes(color)}
+                                onChange={() => toggleServiceColor(s.serviceName, color)}
+                                aria-label={`${color} for ${s.serviceName}`}
+                              />
+                              {color}
+                            </label>
+                          ))}
+                          <button type="button" className="service-color-done" onClick={() => setOpenColorPicker('')}>Done</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="qty-controls">
                     <button
                       type="button"
@@ -391,7 +422,7 @@ export default function POSSalePage() {
                 <div key={l.key} className="cart-row">
                   <div>
                     <b>{l.service}</b>
-                    <span className="cart-item-color">Color: <b>{l.color}</b></span>
+                    <span className="cart-item-color">Colors: <b>{l.color}</b></span>
                     <div className="qty-controls" style={{ marginTop: 'var(--space-1)' }}>
                       <button type="button" aria-label={`Decrease ${l.service}`} onClick={() => setCart((p) => setLineQty(p, l.key, l.qty - 1))}>
                         −

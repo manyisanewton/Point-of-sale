@@ -145,7 +145,7 @@ export const bookingRepository = {
 
       bookingItemsData.push({
         service: itemName,
-        color: String(item.color || '').trim().slice(0, 30),
+        color: String(item.color || '').trim().slice(0, 200),
         kg,
         unitPrice,
         priceLabel: pricingItem.price,

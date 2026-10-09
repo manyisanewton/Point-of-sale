@@ -92,6 +92,15 @@
 .rpt-kpi small { display: block; color: #3b82f6; font-weight: 500; font-size: 13px; }
 .rpt-kpi b { display: block; font-size: 26px; color: var(--navy-dark); overflow-wrap: anywhere; }
 .rpt-kpi > div { min-width: 0; }
+.rpt-amount-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rpt-amount-toggle {
+  display: inline-grid; place-items: center; flex: none;
+  width: 32px; height: 30px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: #fff; color: var(--navy-dark); cursor: pointer;
+}
+.rpt-amount-toggle:hover { background: #eff6ff; border-color: #93c5fd; }
+.rpt-amount-toggle:focus-visible { outline: 2px solid #2f80ed; outline-offset: 2px; }
 
 /* Transactions */
 .rpt-section-title { font-size: 18px; color: var(--navy-dark); margin: 0 0 10px; }
@@ -223,7 +232,7 @@
   @page { size: A4 landscape; margin: 8mm; }
   .pos-topbar, .pos-sidebar, .pos-menu-toggle, .pos-sidebar-overlay,
   .pos-footer, .rpt-quick, .rpt-print, .rpt-hint, .rpt-head,
-  .rpt-filters, .rpt-cards { display: none !important; }
+  .rpt-filters, .rpt-cards, .rpt-amount-toggle { display: none !important; }
   .pos-main { margin-left: 0 !important; }
   .rpt {
     --ink: #14263b;

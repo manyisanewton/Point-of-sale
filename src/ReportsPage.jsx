@@ -3,6 +3,8 @@ import {
   BarChart3,
   Calendar,
   FileText,
+  Eye,
+  EyeOff,
   Printer,
   RotateCcw,
   Users,
@@ -84,6 +86,7 @@ export default function ReportsPage() {
   const [dateWarning, setDateWarning] = useState('');
   const [businessInfo, setBusinessInfo] = useState(null);
   const [printedAt] = useState(() => new Date());
+  const [amountsHidden, setAmountsHidden] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,6 +186,7 @@ export default function ReportsPage() {
     () => filtered.filter((t) => t.status === 'paid').reduce((s, t) => s + t.amount, 0),
     [filtered]
   );
+  const displayAmount = (amount) => amountsHidden ? '••••••' : `KSh ${amount.toLocaleString()}`;
 
   const rangeLabel = from && to ? `${from} to ${to}` : 'all dates';
 
@@ -262,7 +266,22 @@ export default function ReportsPage() {
         </div>
         <div className="rpt-kpi">
           <span className="rpt-kpi-icon purple rpt-currency-icon">KSh</span>
-          <div><small>Amount Made</small><b>KSh {amountMade.toLocaleString()}</b></div>
+          <div>
+            <span className="rpt-amount-heading">
+              <small>Amount Made</small>
+              <button
+                type="button"
+                className="rpt-amount-toggle"
+                onClick={() => setAmountsHidden((hidden) => !hidden)}
+                aria-label={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
+                aria-pressed={amountsHidden}
+                title={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
+              >
+                {amountsHidden ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
+            </span>
+            <b>{displayAmount(amountMade)}</b>
+          </div>
         </div>
       </div>
 
@@ -295,7 +314,7 @@ export default function ReportsPage() {
                   <td className="rpt-contact">{t.contact}</td>
                   <td>{t.servedBy}</td>
                   <td><StatusPill status={t.status} /></td>
-                  <td className="num">KSh {t.amount.toLocaleString()}</td>
+                  <td className="num">{displayAmount(t.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -318,7 +337,7 @@ export default function ReportsPage() {
               </ul>
               <footer>
                 <span>{t.contact} · {t.servedBy}</span>
-                <b>KSh {t.amount.toLocaleString()}</b>
+                <b>{displayAmount(t.amount)}</b>
               </footer>
             </section>
           ))}
@@ -326,7 +345,7 @@ export default function ReportsPage() {
 
         <div className="rpt-foot">
           <span>Showing {filtered.length} record{filtered.length === 1 ? '' : 's'} from {rangeLabel}</span>
-          <span className="rpt-total">Total Amount Made: <b>KSh {amountMade.toLocaleString()}</b></span>
+          <span className="rpt-total">Total Amount Made: <b>{displayAmount(amountMade)}</b></span>
         </div>
       </div>
     </div>

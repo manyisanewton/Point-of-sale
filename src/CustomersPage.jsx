@@ -18,6 +18,13 @@ const EMPTY_CUSTOMER = {
   servedBy: '',
 };
 
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('254') && digits.length === 12) return digits.slice(3);
+  if (digits.startsWith('0') && digits.length === 10) return digits.slice(1);
+  return digits;
+}
+
 export default function CustomersPage() {
   const navigate = useNavigate();
   const { customers, loading, refresh } = useOfflineCustomers();
@@ -26,6 +33,7 @@ export default function CustomersPage() {
   const [serverKnown, setServerKnown] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER);
+  const [matchedExistingCustomer, setMatchedExistingCustomer] = useState(null);
   const [formError, setFormError] = useState('');
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [notice, setNotice] = useState('');
@@ -60,7 +68,7 @@ export default function CustomersPage() {
   useEffect(() => {
     if (!showCreateForm) return undefined;
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setShowCreateForm(false);
+      if (event.key === 'Escape') closeCreateForm();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -68,6 +76,13 @@ export default function CustomersPage() {
 
   async function handleCreateCustomer(event) {
     event.preventDefault();
+    if (matchedExistingCustomer) {
+      setShowCreateForm(false);
+      setNotice(`Existing customer details loaded for ${matchedExistingCustomer.name}.`);
+      setMatchedExistingCustomer(null);
+      setCustomerForm(EMPTY_CUSTOMER);
+      return;
+    }
     const customer = {
       ...customerForm,
       name: customerForm.name.trim(),
@@ -97,6 +112,23 @@ export default function CustomersPage() {
   function closeCreateForm() {
     setShowCreateForm(false);
     setFormError('');
+    setMatchedExistingCustomer(null);
+    setCustomerForm(EMPTY_CUSTOMER);
+  }
+
+  function handlePhoneChange(phone) {
+    const normalizedPhone = normalizePhone(phone);
+    const matched = normalizedPhone.length >= 9
+      ? customers.find((customer) => normalizePhone(customer.phone) === normalizedPhone)
+      : null;
+    setMatchedExistingCustomer(matched || null);
+    setCustomerForm((current) => ({
+      ...current,
+      phone,
+      name: matched ? (matched.name || '') : (matchedExistingCustomer ? '' : current.name),
+      email: matched ? (matched.email || '') : (matchedExistingCustomer ? '' : current.email),
+      servedBy: matchedExistingCustomer && !matched ? '' : current.servedBy,
+    }));
   }
 
   async function handleDeleteCustomer(customer) {
@@ -239,25 +271,27 @@ export default function CustomersPage() {
             <form onSubmit={handleCreateCustomer}>
               <div className="customer-form-grid">
                 <label className="customer-form-field">
-                  Customer Name
+                  Phone number
                   <input
                     autoFocus
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    value={customerForm.phone}
+                    onChange={(event) => handlePhoneChange(event.target.value)}
+                    required
+                  />
+                  {matchedExistingCustomer && <small className="customer-existing-match" role="status">Existing customer found. Details filled in.</small>}
+                </label>
+                <label className="customer-form-field">
+                  Customer Name
+                  <input
                     name="name"
                     type="text"
                     autoComplete="name"
                     value={customerForm.name}
                     onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })}
-                    required
-                  />
-                </label>
-                <label className="customer-form-field">
-                  Phone number
-                  <input
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    value={customerForm.phone}
-                    onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })}
+                    disabled={Boolean(matchedExistingCustomer)}
                     required
                   />
                 </label>
@@ -269,6 +303,7 @@ export default function CustomersPage() {
                     autoComplete="email"
                     value={customerForm.email}
                     onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })}
+                    disabled={Boolean(matchedExistingCustomer)}
                   />
                 </label>
                 <label className="customer-form-field">
@@ -287,7 +322,7 @@ export default function CustomersPage() {
               <div className="customer-modal-actions">
                 <button className="customer-cancel-button" type="button" onClick={closeCreateForm}>Cancel</button>
                 <button className="customer-submit-button" type="submit" disabled={savingCustomer}>
-                  {savingCustomer ? 'Saving…' : 'Save Customer'}
+                  {savingCustomer ? 'Saving…' : matchedExistingCustomer ? 'Use Existing Customer' : 'Save Customer'}
                 </button>
               </div>
             </form>
