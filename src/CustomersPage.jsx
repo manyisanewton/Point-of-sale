@@ -55,6 +55,8 @@ export default function CustomersPage() {
   const [sendingOutreach, setSendingOutreach] = useState(false);
   const [outreachError, setOutreachError] = useState('');
   const [outreachResult, setOutreachResult] = useState(null);
+  const [manualWhatsAppMode, setManualWhatsAppMode] = useState(false);
+  const [manualWhatsAppIndex, setManualWhatsAppIndex] = useState(0);
 
   // Local-first: Dexie renders immediately; server refreshes the mirror
   // when online (by phone, without touching pending local rows).
@@ -194,6 +196,12 @@ export default function CustomersPage() {
         }),
       });
       const result = await response.json();
+      if (response.status === 503) {
+        setManualWhatsAppMode(true);
+        setManualWhatsAppIndex(0);
+        setOutreachError('Automatic sending is not configured. Open each WhatsApp chat below and press Send to deliver the message.');
+        return;
+      }
       if (!response.ok) throw new Error(result.error || 'Could not send the WhatsApp campaign.');
       setOutreachResult(result);
     } catch (error) {
@@ -201,6 +209,14 @@ export default function CustomersPage() {
     } finally {
       setSendingOutreach(false);
     }
+  }
+
+  function openNextWhatsAppChat() {
+    const customer = outreachRecipients[manualWhatsAppIndex];
+    if (!customer || !outreachMessage.trim()) return;
+    const chatUrl = `https://wa.me/${customer.whatsappPhone}?text=${encodeURIComponent(outreachMessage.trim())}`;
+    window.open(chatUrl, '_blank', 'noopener,noreferrer');
+    setManualWhatsAppIndex((index) => index + 1);
   }
 
   if (loading) return <div className="pos-page"><h2>Customers</h2><p>Loading customers…</p></div>;
@@ -328,6 +344,8 @@ export default function CustomersPage() {
                     setOutreachAllCustomers(false);
                     setOutreachResult(null);
                     setConfirmedOutreachOptIn(false);
+                    setManualWhatsAppMode(false);
+                    setManualWhatsAppIndex(0);
                   }}
                 >By staff member</button>
                 <button
@@ -340,6 +358,8 @@ export default function CustomersPage() {
                     setOutreachStaff('');
                     setOutreachResult(null);
                     setConfirmedOutreachOptIn(false);
+                    setManualWhatsAppMode(false);
+                    setManualWhatsAppIndex(0);
                   }}
                 >All customers</button>
               </div>
@@ -352,6 +372,8 @@ export default function CustomersPage() {
                     setOutreachStaff(event.target.value);
                     setOutreachResult(null);
                     setConfirmedOutreachOptIn(false);
+                    setManualWhatsAppMode(false);
+                    setManualWhatsAppIndex(0);
                   }} required disabled={sendingOutreach}>
                     <option value="">Choose your name</option>
                     {staffNames.map((staff) => <option key={staff} value={staff}>{staff}</option>)}
@@ -363,7 +385,12 @@ export default function CustomersPage() {
                 <textarea
                   rows={4}
                   value={outreachMessage}
-                  onChange={(event) => { setOutreachMessage(event.target.value); setOutreachResult(null); }}
+                  onChange={(event) => {
+                    setOutreachMessage(event.target.value);
+                    setOutreachResult(null);
+                    setManualWhatsAppMode(false);
+                    setManualWhatsAppIndex(0);
+                  }}
                   placeholder="Write the message to send to these customers…"
                   maxLength={1024}
                   required
@@ -387,7 +414,9 @@ export default function CustomersPage() {
                           ? outreachResult.results.find((result) => result.phone === customer.whatsappPhone).accepted
                             ? 'Accepted for delivery'
                             : 'Failed'
-                          : ''}
+                          : manualWhatsAppMode && outreachRecipients.indexOf(customer) < manualWhatsAppIndex
+                            ? 'Chat opened'
+                            : ''}
                       </span>
                     </li>
                   ))}
@@ -404,6 +433,9 @@ export default function CustomersPage() {
               I confirm these customers agreed to receive WhatsApp messages.
             </label>
             {outreachError && <p className="customer-whatsapp-error" role="alert">{outreachError}</p>}
+            {manualWhatsAppMode && manualWhatsAppIndex >= outreachRecipients.length && (
+              <p className="customer-whatsapp-result" role="status">All customer chats have been opened. Send the prefilled message in each WhatsApp chat to complete the campaign.</p>
+            )}
             {outreachResult && (
               <p className="customer-whatsapp-result" role="status">
                 WhatsApp accepted {outreachResult.accepted} of {outreachResult.total} messages for delivery. {outreachResult.failed > 0 && `${outreachResult.failed} failed.`}
@@ -419,15 +451,29 @@ export default function CustomersPage() {
                   setOutreachError('');
                 }}>New campaign</button>
               )}
-              <button
-                className="customer-whatsapp-button"
-                type="button"
-                onClick={sendWhatsAppCampaign}
-                disabled={sendingOutreach || (!outreachAllCustomers && !outreachStaff) || !outreachMessage.trim() || !confirmedOutreachOptIn || outreachRecipients.length === 0 || Boolean(outreachResult)}
-              >
-                <MessageCircle size={17} />
-                {sendingOutreach ? 'Sending…' : outreachResult ? 'Campaign submitted' : `Send to ${outreachRecipients.length} customers`}
-              </button>
+              {manualWhatsAppMode ? (
+                <button
+                  className="customer-whatsapp-button"
+                  type="button"
+                  onClick={openNextWhatsAppChat}
+                  disabled={manualWhatsAppIndex >= outreachRecipients.length || !outreachMessage.trim()}
+                >
+                  <MessageCircle size={17} />
+                  {manualWhatsAppIndex >= outreachRecipients.length
+                    ? 'Chats opened'
+                    : `Open WhatsApp for ${outreachRecipients[manualWhatsAppIndex]?.name || 'next customer'} (${manualWhatsAppIndex + 1}/${outreachRecipients.length})`}
+                </button>
+              ) : (
+                <button
+                  className="customer-whatsapp-button"
+                  type="button"
+                  onClick={sendWhatsAppCampaign}
+                  disabled={sendingOutreach || (!outreachAllCustomers && !outreachStaff) || !outreachMessage.trim() || !confirmedOutreachOptIn || outreachRecipients.length === 0 || Boolean(outreachResult)}
+                >
+                  <MessageCircle size={17} />
+                  {sendingOutreach ? 'Sending…' : outreachResult ? 'Campaign submitted' : `Send to ${outreachRecipients.length} customers`}
+                </button>
+              )}
             </div>
           </section>
         </div>

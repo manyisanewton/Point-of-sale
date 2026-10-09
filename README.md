@@ -86,6 +86,22 @@ After submission, the customer receives a secure link to a branded receipt conta
 
 For a production deployment, always set a strong `ADMIN_PASSWORD` and a long random `SESSION_SECRET`. The server uses a signed, HTTP-only, same-site session cookie. Never commit the `.env` file.
 
+### WhatsApp customer campaigns
+
+Automatic campaigns use the WhatsApp Business Platform Cloud API. In Meta for Developers, set up a WhatsApp Business app and configure these server-side values in `.env` (never in frontend code):
+
+```env
+WHATSAPP_ACCESS_TOKEN=""
+WHATSAPP_PHONE_NUMBER_ID=""
+WHATSAPP_API_VERSION="v24.0"
+WHATSAPP_BROADCAST_TEMPLATE=""
+WHATSAPP_BROADCAST_LANGUAGE="en"
+```
+
+Use a valid access token and the phone number ID for the registered business sender. Create and get approval for a marketing message template whose body has one text placeholder (`{{1}}`); set the template name and its exact language code above. Save `.env` and restart the backend. Without these values, the customer screen provides a manual WhatsApp chat fallback instead of sending automatically. Campaigns should only be sent to customers who opted in to WhatsApp messages.
+
+See Meta’s [WhatsApp Cloud API documentation](https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api) and [WhatsApp Business messaging policy](https://whatsappbusiness.com/policy/?faq=5) for account setup, templates, and consent requirements.
+
 ## Production build
 
 Create the deployable site with:
