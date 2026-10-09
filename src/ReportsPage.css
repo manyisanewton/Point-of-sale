@@ -220,7 +220,7 @@
 /* Print: statement only */
 .rpt-print-letterhead, .rpt-print-period, .rpt-print-stamp-row { display: none; }
 @media print {
-  @page { size: A4 landscape; margin: 12mm; }
+  @page { size: A4 landscape; margin: 8mm; }
   .pos-topbar, .pos-sidebar, .pos-menu-toggle, .pos-sidebar-overlay,
   .pos-footer, .rpt-quick, .rpt-print, .rpt-hint, .rpt-head,
   .rpt-filters, .rpt-cards { display: none !important; }
@@ -236,7 +236,7 @@
     width: 100% !important;
     min-height: 0 !important;
     overflow: visible !important;
-    font: 10pt/1.35 Arial, sans-serif !important;
+    font: 9pt/1.25 Arial, sans-serif !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
@@ -249,9 +249,9 @@
     margin-bottom: 8px;
     color: #14263b !important;
   }
-  .rpt-print-letterhead img { width: 60px; height: 60px; object-fit: contain; }
-  .rpt-print-letterhead h1 { margin: 0 0 3px; font-size: 18pt; color: #123a6d !important; }
-  .rpt-print-letterhead p { margin: 2px 0; font-size: 8.5pt; }
+  .rpt-print-letterhead img { width: 48px; height: 48px; object-fit: contain; }
+  .rpt-print-letterhead h1 { margin: 0 0 3px; font-size: 16pt; color: #123a6d !important; }
+  .rpt-print-letterhead p { margin: 2px 0; font-size: 7.5pt; }
   .rpt-print-meta { margin-left: auto; text-align: right; display: grid; gap: 5px; font-size: 9pt; }
   .rpt-print-meta b { font-size: 12pt; letter-spacing: .06em; color: #123a6d !important; }
   .rpt-print-stamp-row {
@@ -259,56 +259,56 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    min-height: 92px;
-    margin: 4px 0 8px;
+    min-height: 0;
+    margin: 6px 0 8px;
     break-inside: avoid;
   }
   .rpt-print-stamp {
     display: grid !important;
     position: static;
-    transform: rotate(-3deg);
+    transform: none;
     place-content: center;
     justify-items: center;
     flex: none;
-    width: 210px;
-    min-height: 118px;
-    padding: 12px 14px;
+    width: 150px;
+    min-height: 72px;
+    padding: 7px 12px;
     box-sizing: border-box;
     margin: 0;
-    border: 4px double #174f91;
-    border-radius: 8px;
-    background: #eaf3ff !important;
+    border: 3px solid #174f91;
+    border-radius: 4px;
+    background: #fff !important;
     color: #174f91 !important;
     text-align: center;
     line-height: 1.25;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
-  .rpt-print-stamp b { font-size: 15pt; letter-spacing: .07em; }
+  .rpt-print-stamp b { font-size: 10pt; letter-spacing: .07em; }
   .rpt-print-stamp span { font-weight: 700; }
-  .rpt-print-stamp .rpt-stamp-top { font-size: 8pt; letter-spacing: .12em; }
-  .rpt-print-stamp .rpt-stamp-bottom { font-size: 7pt; letter-spacing: .1em; }
-  .rpt-print-stamp small { margin-top: 5px; padding-top: 3px; border-top: 1px solid #174f91; font-size: 8pt; }
-  .rpt-print-period { display: block !important; margin: 0 0 12px; font-size: 9.5pt; }
-  .rpt-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .rpt-kpi { border: 1px solid #c8d3df !important; border-radius: 6px; padding: 10px; gap: 9px; break-inside: avoid; background: #fff !important; }
-  .rpt-kpi-icon { width: 38px; height: 38px; border-radius: 8px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .rpt-print-stamp .rpt-stamp-top { font-size: 6.5pt; letter-spacing: .12em; }
+  .rpt-print-stamp .rpt-stamp-bottom { font-size: 6pt; letter-spacing: .1em; }
+  .rpt-print-stamp small { margin-top: 3px; padding-top: 2px; border-top: 1px solid #174f91; font-size: 6.5pt; }
+  .rpt-print-period { display: block !important; margin: 0 0 7px; font-size: 8pt; }
+  .rpt-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .rpt-kpi { border: 1px solid #c8d3df !important; border-radius: 6px; padding: 7px; gap: 7px; break-inside: avoid; background: #fff !important; }
+  .rpt-kpi-icon { width: 30px; height: 30px; border-radius: 7px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .rpt-currency-icon { font-size: 10pt; font-weight: 800; }
   .rpt-kpi small { color: #3b82f6 !important; font-size: 8.5pt; }
   .rpt-kpi b { color: #14263b !important; font-size: 12pt; }
-  .rpt-section-title { margin: 0 0 6px; font-size: 12pt; color: #123a6d !important; }
+  .rpt-section-title { margin: 0 0 5px; font-size: 11pt; color: #123a6d !important; }
   .rpt-table-card { border: 1px solid #aebdcd !important; border-radius: 3px; break-inside: auto; }
   .rpt-table-wrap { display: block !important; overflow: visible !important; }
   .rpt-table { min-width: 0 !important; width: 100% !important; font-size: 8.5pt; }
   .rpt-table thead { display: table-header-group; }
   .rpt-table tr { break-inside: avoid; }
-  .rpt-table thead th { background: #eaf0f6 !important; color: #14263b !important; padding: 7px 8px; }
-  .rpt-table tbody td { color: #14263b !important; padding: 6px 8px; border-color: #d5dee8 !important; }
+  .rpt-table thead th { background: #eaf0f6 !important; color: #14263b !important; padding: 5px 6px; }
+  .rpt-table tbody td { color: #14263b !important; padding: 4px 6px; border-color: #d5dee8 !important; }
   .rpt-services li { padding-left: 10px; }
   .rpt-pill { color: #fff !important; padding: 2px 8px; min-width: 45px; font-size: 7.5pt; }
-  .rpt-foot { padding: 8px; color: #14263b !important; font-size: 8.5pt; }
-  .rpt-total { background: #eaf0f6 !important; color: #14263b !important; border-radius: 3px; }
-  .rpt-total b { color: #123a6d !important; }
+  .rpt-foot { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 8px; color: #14263b !important; font-size: 8pt; break-inside: avoid; page-break-inside: avoid; }
+  .rpt-total { display: inline-flex !important; align-items: center; gap: 8px; background: #eaf0f6 !important; color: #14263b !important; border-radius: 3px; padding: 6px 10px; white-space: nowrap; }
+  .rpt-total b { color: #123a6d !important; font-size: 10pt; margin-left: 0; }
 }
 
 @media (max-width: 480px) {
