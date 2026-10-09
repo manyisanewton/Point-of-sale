@@ -255,20 +255,18 @@
   .rpt-print-meta { margin-left: auto; text-align: right; display: grid; gap: 5px; font-size: 9pt; }
   .rpt-print-meta b { font-size: 12pt; letter-spacing: .06em; color: #123a6d !important; }
   .rpt-print-stamp-row {
-    display: block !important;
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 99999;
-    pointer-events: none;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 92px;
+    margin: 4px 0 8px;
+    break-inside: avoid;
   }
   .rpt-print-stamp {
     display: grid !important;
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%) rotate(-5deg);
+    position: static;
+    transform: rotate(-3deg);
     place-content: center;
     justify-items: center;
     flex: none;
