@@ -275,11 +275,18 @@
   .rpt-print-meta b { font-size: 12pt; letter-spacing: .06em; color: #123a6d !important; }
   .rpt-print-stamp-row {
     display: flex !important;
+    position: fixed !important;
+    top: 50vh;
+    left: 50%;
     justify-content: center;
     align-items: center;
-    width: 100%;
+    width: 150px;
     min-height: 0;
-    margin: 6px 0 8px;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    opacity: .62;
+    z-index: 0;
+    pointer-events: none;
     break-inside: avoid;
   }
   .rpt-print-stamp {

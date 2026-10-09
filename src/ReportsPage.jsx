@@ -291,14 +291,15 @@ export default function ReportsPage() {
     doc.line(margin, 27, pageWidth - margin, 27);
 
     // Center the official laundromat stamp on every statement page.
-    function drawStamp(stampY) {
+    function drawStamp(stampY, watermark = false) {
       const stampWidth = 38;
       const stampHeight = 19;
       const stampX = (pageWidth - stampWidth) / 2;
-      doc.setLineWidth(0.8);
-      doc.setDrawColor(23, 79, 145);
+      const stampColor = watermark ? [34, 96, 168] : [23, 79, 145];
+      doc.setLineWidth(watermark ? 0.8 : 0.8);
+      doc.setDrawColor(...stampColor);
       doc.roundedRect(stampX, stampY, stampWidth, stampHeight, 1, 1, 'S');
-      doc.setTextColor(23, 79, 145);
+      doc.setTextColor(...stampColor);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.text('OPEN DOORS', pageWidth / 2, stampY + 4, { align: 'center' });
@@ -310,7 +311,7 @@ export default function ReportsPage() {
       doc.setFontSize(5);
       doc.text(pdfText(printedAt.toLocaleDateString('en-KE')), pageWidth / 2, stampY + 16, { align: 'center' });
     }
-    drawStamp(30);
+    drawStamp((pageHeight - 19) / 2, true);
 
     doc.setFontSize(6.5);
     doc.setTextColor(40, 55, 72);
@@ -362,7 +363,7 @@ export default function ReportsPage() {
         doc.setDrawColor(18, 58, 109);
         doc.setLineWidth(0.5);
         doc.line(margin, 19, pageWidth - margin, 19);
-        drawStamp(23);
+        drawStamp((pageHeight - 19) / 2, true);
         y = 47;
       }
       doc.setFillColor(234, 240, 246);
