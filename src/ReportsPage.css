@@ -255,33 +255,42 @@
   .rpt-print-meta { margin-left: auto; text-align: right; display: grid; gap: 5px; font-size: 9pt; }
   .rpt-print-meta b { font-size: 12pt; letter-spacing: .06em; color: #123a6d !important; }
   .rpt-print-stamp-row {
-    display: flex !important;
-    justify-content: center;
-    align-items: center;
-    min-height: 86px;
-    break-inside: avoid;
-    position: running(statementStamp);
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    pointer-events: none;
   }
   .rpt-print-stamp {
     display: grid !important;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-5deg);
     place-content: center;
     justify-items: center;
     flex: none;
-    width: 76px;
-    height: 76px;
-    margin: 0 auto;
-    border: 3px double #187447;
-    border-radius: 50%;
-    color: #187447 !important;
+    width: 210px;
+    min-height: 118px;
+    padding: 12px 14px;
+    box-sizing: border-box;
+    margin: 0;
+    border: 4px double #174f91;
+    border-radius: 8px;
+    background: #eaf3ff !important;
+    color: #174f91 !important;
     text-align: center;
-    line-height: 1.1;
-    transform: rotate(-10deg);
+    line-height: 1.25;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
-  .rpt-print-stamp b { font-size: 9pt; letter-spacing: .08em; }
-  .rpt-print-stamp span { font-size: 7pt; font-weight: 700; letter-spacing: .16em; }
-  .rpt-print-stamp small { margin-top: 3px; font-size: 6pt; }
+  .rpt-print-stamp b { font-size: 15pt; letter-spacing: .07em; }
+  .rpt-print-stamp span { font-weight: 700; }
+  .rpt-print-stamp .rpt-stamp-top { font-size: 8pt; letter-spacing: .12em; }
+  .rpt-print-stamp .rpt-stamp-bottom { font-size: 7pt; letter-spacing: .1em; }
+  .rpt-print-stamp small { margin-top: 5px; padding-top: 3px; border-top: 1px solid #174f91; font-size: 8pt; }
   .rpt-print-period { display: block !important; margin: 0 0 12px; font-size: 9.5pt; }
   .rpt-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
   .rpt-kpi { border: 1px solid #c8d3df !important; border-radius: 6px; padding: 10px; gap: 9px; break-inside: avoid; background: #fff !important; }
@@ -302,9 +311,6 @@
   .rpt-foot { padding: 8px; color: #14263b !important; font-size: 8.5pt; }
   .rpt-total { background: #eaf0f6 !important; color: #14263b !important; border-radius: 3px; }
   .rpt-total b { color: #123a6d !important; }
-  @page {
-    @top-center { content: element(statementStamp); }
-  }
 }
 
 @media (max-width: 480px) {

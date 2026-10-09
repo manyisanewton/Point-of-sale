@@ -214,8 +214,9 @@ export default function ReportsPage() {
       </header>
       <div className="rpt-print-stamp-row">
         <div className="rpt-print-stamp" aria-label="Statement printed and issued">
+          <span className="rpt-stamp-top">OPEN DOORS</span>
           <b>STATEMENT</b>
-          <span>ISSUED</span>
+          <span className="rpt-stamp-bottom">OFFICIAL COPY</span>
           <small>{printedAt.toLocaleDateString('en-KE')}</small>
         </div>
       </div>
