@@ -5,6 +5,7 @@ import {
   FileText,
   Eye,
   EyeOff,
+  Download,
   Printer,
   RotateCcw,
   Users,
@@ -233,6 +234,210 @@ export default function ReportsPage() {
 
   const rangeLabel = from && to ? `${from} to ${to}` : 'all dates';
 
+  async function downloadStatement() {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    const columns = [
+      { title: 'Date', x: 12, width: 25 },
+      { title: 'Customer', x: 39, width: 43 },
+      { title: 'Services', x: 84, width: 87 },
+      { title: 'Contact', x: 173, width: 32 },
+      { title: 'Served by', x: 207, width: 34 },
+      { title: 'Status', x: 243, width: 22 },
+      { title: 'Amount', x: 267, width: 18 },
+    ];
+    const pdfText = (value) => String(value ?? '').normalize('NFKD').replace(/[^\x20-\x7E]/g, ' ');
+    let y = 0;
+
+    // Add the same compact business letterhead used by the printable statement.
+    try {
+      const logoResponse = await fetch('/assets/logo.jpg');
+      if (logoResponse.ok) {
+        const logoBlob = await logoResponse.blob();
+        const logoData = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(logoBlob);
+        });
+        doc.addImage(logoData, 'JPEG', margin, 9, 10, 10);
+      }
+    } catch {
+      // A missing logo should not prevent the report from downloading.
+    }
+
+    doc.setTextColor(18, 58, 109);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(pdfText(businessInfo?.name || 'Open Doors Laundromat'), 28, 14);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(80, 95, 112);
+    doc.text(pdfText(businessInfo?.address || 'Chuna Mall, Ground Floor, Shop 10, Kitengela'), 28, 18);
+    doc.text(pdfText([businessInfo?.phone || '011 944 4972', businessInfo?.email || 'opendoorslaundromat@gmail.com'].join(' | ')), 28, 22);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(18, 58, 109);
+    doc.text('BUSINESS STATEMENT', pageWidth - margin, 14, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(40, 55, 72);
+    doc.text(`Printed ${pdfText(formatStatementDate(printedAt))}`, pageWidth - margin, 20, { align: 'right' });
+    doc.setDrawColor(18, 58, 109);
+    doc.setLineWidth(0.7);
+    doc.line(margin, 27, pageWidth - margin, 27);
+
+    // Center the official laundromat stamp on every statement page.
+    function drawStamp(stampY) {
+      const stampWidth = 38;
+      const stampHeight = 19;
+      const stampX = (pageWidth - stampWidth) / 2;
+      doc.setLineWidth(0.8);
+      doc.setDrawColor(23, 79, 145);
+      doc.roundedRect(stampX, stampY, stampWidth, stampHeight, 1, 1, 'S');
+      doc.setTextColor(23, 79, 145);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.text('OPEN DOORS', pageWidth / 2, stampY + 4, { align: 'center' });
+      doc.setFontSize(7.5);
+      doc.text('LAUNDROMAT', pageWidth / 2, stampY + 8, { align: 'center' });
+      doc.setFontSize(5.3);
+      doc.text('OFFICIAL COPY', pageWidth / 2, stampY + 12, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5);
+      doc.text(pdfText(printedAt.toLocaleDateString('en-KE')), pageWidth / 2, stampY + 16, { align: 'center' });
+    }
+    drawStamp(30);
+
+    doc.setFontSize(6.5);
+    doc.setTextColor(40, 55, 72);
+    doc.text(`Statement period: ${pdfText(rangeLabel)}`, margin, 57);
+
+    // Compact summary cards keep the exported statement close to the screen layout.
+    const summaryY = 61;
+    const summaryGap = 4;
+    const summaryWidth = (pageWidth - margin * 2 - summaryGap * 2) / 3;
+    const summaries = [
+      { label: 'Total Customers', value: String(totalCustomers), color: [47, 128, 237], icon: 'U' },
+      { label: 'Total Services', value: String(totalServices), color: [34, 197, 94], icon: 'S' },
+      { label: 'Amount Made', value: amountsHidden ? '------' : `KSh ${amountMade.toLocaleString()}`, color: [139, 92, 246], icon: 'KSh' },
+    ];
+    summaries.forEach((summary, index) => {
+      const x = margin + index * (summaryWidth + summaryGap);
+      doc.setDrawColor(205, 219, 234);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, summaryY, summaryWidth, 15, 2, 2, 'FD');
+      doc.setFillColor(...summary.color);
+      doc.roundedRect(x + 2, summaryY + 2.5, 10, 10, 1.5, 1.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(summary.icon === 'KSh' ? 5.5 : 7);
+      doc.text(summary.icon, x + 7, summaryY + 8.8, { align: 'center' });
+      doc.setTextColor(47, 111, 225);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.text(summary.label, x + 15, summaryY + 5.5);
+      doc.setTextColor(20, 38, 59);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(pdfText(summary.value), x + 15, summaryY + 11.5);
+    });
+
+    doc.setTextColor(18, 58, 109);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Transactions', margin, 82);
+
+    function drawTableHeading(firstPage = false) {
+      if (firstPage) y = 86;
+      else {
+        y = 16;
+        doc.setTextColor(18, 58, 109);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('Open Doors Laundromat - Business Statement (continued)', margin, y);
+        doc.setDrawColor(18, 58, 109);
+        doc.setLineWidth(0.5);
+        doc.line(margin, 19, pageWidth - margin, 19);
+        drawStamp(23);
+        y = 47;
+      }
+      doc.setFillColor(234, 240, 246);
+      doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.3);
+      doc.setTextColor(20, 38, 59);
+      columns.forEach((column) => doc.text(column.title, column.x, y + 4));
+      y += 8;
+    }
+
+    drawTableHeading(true);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    filtered.forEach((transaction, transactionIndex) => {
+      const serviceLines = transaction.services.flatMap((service) =>
+        doc.splitTextToSize(pdfText(`- ${service.service} x${service.qty}${service.color ? ` - ${service.color}` : ''}`), columns[2].width - 2)
+      );
+      const customerLines = doc.splitTextToSize(pdfText(transaction.customer), columns[1].width - 2);
+      const servedByLines = doc.splitTextToSize(pdfText(transaction.servedBy), columns[4].width - 2);
+      const lineHeight = 3.7;
+      const rowHeight = Math.max(9, Math.max(serviceLines.length, customerLines.length, servedByLines.length) * lineHeight + 4);
+      if (y + rowHeight > pageHeight - 18) {
+        doc.addPage();
+        drawTableHeading();
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+      }
+      const rowTop = y;
+      if (transactionIndex % 2 === 1) {
+        doc.setFillColor(248, 251, 254);
+        doc.rect(margin, rowTop, pageWidth - margin * 2, rowHeight, 'F');
+      }
+      const baseline = rowTop + 4.5;
+      const singleLineValues = [
+        pdfText(transaction.day), null, null,
+        pdfText(transaction.contact), null,
+        transaction.status === 'paid' ? 'Paid' : 'Pending',
+        `KSh ${transaction.amount.toLocaleString()}`,
+      ];
+      singleLineValues.forEach((value, index) => {
+        if (value !== null) doc.text(value, columns[index].x, baseline);
+      });
+      [customerLines, serviceLines, servedByLines].forEach((lines, groupIndex) => {
+        const columnIndex = [1, 2, 4][groupIndex];
+        lines.forEach((line, lineIndex) => {
+          doc.text(line, columns[columnIndex].x, baseline + lineIndex * lineHeight);
+        });
+      });
+      y += rowHeight;
+      doc.setDrawColor(220, 229, 238);
+      doc.setLineWidth(0.25);
+      doc.line(margin, y, pageWidth - margin, y);
+    });
+
+    if (y + 12 > pageHeight - 8) {
+      doc.addPage();
+      drawTableHeading();
+    }
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 95, 112);
+    doc.text(`Showing ${filtered.length} record${filtered.length === 1 ? '' : 's'} | ${pdfText(rangeLabel)}`, margin, y);
+    const totalLabel = `Total Amount Made: KSh ${amountMade.toLocaleString()}`;
+    const totalWidth = doc.getTextWidth(totalLabel) + 9;
+    doc.setFillColor(234, 240, 246);
+    doc.roundedRect(pageWidth - margin - totalWidth, y - 5, totalWidth, 8, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(18, 58, 109);
+    doc.text(totalLabel, pageWidth - margin - 4, y, { align: 'right' });
+    const filename = `open-doors-statement-${from || 'start'}-to-${to || 'end'}.pdf`;
+    doc.save(filename);
+  }
+
   if (loading) return <div className="rpt"><div className="rpt-loading" role="status">Loading reports…</div></div>;
   if (loadError && transactions.length === 0) {
     return (
@@ -292,6 +497,7 @@ export default function ReportsPage() {
           <button type="button" className="rpt-btn outline" onClick={clearRange}><RotateCcw size={15} /> Clear</button>
         </div>
         <div className="rpt-print">
+          <button type="button" className="rpt-btn outline" onClick={downloadStatement}><Download size={16} /> Download PDF</button>
           <button type="button" className="rpt-btn print" onClick={() => window.print()}><Printer size={16} /> Print Statement</button>
         </div>
       </div>
