@@ -295,8 +295,8 @@ export default function ReportsPage() {
       const stampWidth = 38;
       const stampHeight = 19;
       const stampX = (pageWidth - stampWidth) / 2;
-      const stampColor = watermark ? [34, 96, 168] : [23, 79, 145];
-      doc.setLineWidth(watermark ? 0.8 : 0.8);
+      const stampColor = [23, 79, 145];
+      doc.setLineWidth(0.8);
       doc.setDrawColor(...stampColor);
       doc.roundedRect(stampX, stampY, stampWidth, stampHeight, 1, 1, 'S');
       doc.setTextColor(...stampColor);
@@ -311,7 +311,7 @@ export default function ReportsPage() {
       doc.setFontSize(5);
       doc.text(pdfText(printedAt.toLocaleDateString('en-KE')), pageWidth / 2, stampY + 16, { align: 'center' });
     }
-    drawStamp((pageHeight - 19) / 2, true);
+    drawStamp((pageHeight - 19) / 2);
 
     doc.setFontSize(6.5);
     doc.setTextColor(40, 55, 72);
@@ -350,10 +350,8 @@ export default function ReportsPage() {
     doc.setTextColor(18, 58, 109);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text('Transactions', margin, 82);
-
     function drawTableHeading(firstPage = false) {
-      if (firstPage) y = 86;
+      if (firstPage) y = 119;
       else {
         y = 16;
         doc.setTextColor(18, 58, 109);
@@ -363,9 +361,13 @@ export default function ReportsPage() {
         doc.setDrawColor(18, 58, 109);
         doc.setLineWidth(0.5);
         doc.line(margin, 19, pageWidth - margin, 19);
-        drawStamp((pageHeight - 19) / 2, true);
-        y = 47;
+        drawStamp((pageHeight - 19) / 2);
+        y = 119;
       }
+      doc.setTextColor(18, 58, 109);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Transactions', margin, 115);
       doc.setFillColor(234, 240, 246);
       doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
       doc.setFont('helvetica', 'bold');
