@@ -87,7 +87,11 @@ export default function ReportsPage() {
   const [dateWarning, setDateWarning] = useState('');
   const [businessInfo, setBusinessInfo] = useState(null);
   const [printedAt] = useState(() => new Date());
-  const { amountsHidden, toggleAmounts } = useAmountVisibility();
+  const { amountsHidden, showAmounts, hideAmounts } = useAmountVisibility();
+  const [pinPromptOpen, setPinPromptOpen] = useState(false);
+  const [reportPin, setReportPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [verifyingPin, setVerifyingPin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +193,42 @@ export default function ReportsPage() {
   );
   const displayAmount = (amount) => amountsHidden ? '••••••' : `KSh ${amount.toLocaleString()}`;
 
+  function handleAmountVisibilityClick() {
+    if (!amountsHidden) {
+      hideAmounts();
+      return;
+    }
+    setReportPin('');
+    setPinError('');
+    setPinPromptOpen(true);
+  }
+
+  async function verifyReportPin(event) {
+    event.preventDefault();
+    if (!reportPin) {
+      setPinError('Enter your PIN to show the amount.');
+      return;
+    }
+    setVerifyingPin(true);
+    setPinError('');
+    try {
+      const response = await fetch('/api/admin/verify-amount-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: reportPin }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not verify the PIN.');
+      showAmounts();
+      setPinPromptOpen(false);
+      setReportPin('');
+    } catch (error) {
+      setPinError(error.message || 'Could not verify the PIN.');
+    } finally {
+      setVerifyingPin(false);
+    }
+  }
+
   const rangeLabel = from && to ? `${from} to ${to}` : 'all dates';
 
   if (loading) return <div className="rpt"><div className="rpt-loading" role="status">Loading reports…</div></div>;
@@ -273,7 +313,7 @@ export default function ReportsPage() {
               <button
                 type="button"
                 className="rpt-amount-toggle"
-                onClick={toggleAmounts}
+                onClick={handleAmountVisibilityClick}
                 aria-label={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
                 aria-pressed={amountsHidden}
                 title={amountsHidden ? 'Show report amounts' : 'Hide report amounts'}
@@ -349,6 +389,35 @@ export default function ReportsPage() {
           <span className="rpt-total">Total Amount Made: <b>KSh {amountMade.toLocaleString()}</b></span>
         </div>
       </div>
+      {pinPromptOpen && (
+        <div className="booking-dialog-backdrop">
+          <section className="booking-dialog rpt-pin-dialog" role="dialog" aria-modal="true" aria-labelledby="rpt-pin-title">
+            <h2 id="rpt-pin-title">Show report amount</h2>
+            <p>Enter your report PIN to reveal Amount Made, Total Collected, and Today’s revenue. If no report PIN is configured, use your admin password.</p>
+            <form onSubmit={verifyReportPin}>
+              <label className="rpt-pin-field" htmlFor="rpt-amount-pin">Report PIN
+                <input
+                  id="rpt-amount-pin"
+                  type="password"
+                  autoComplete="current-password"
+                  autoFocus
+                  maxLength={128}
+                  value={reportPin}
+                  onChange={(event) => setReportPin(event.target.value)}
+                  aria-describedby={pinError ? 'rpt-pin-error' : undefined}
+                />
+              </label>
+              {pinError && <p id="rpt-pin-error" className="rpt-pin-error" role="alert">{pinError}</p>}
+              <div className="booking-dialog-actions">
+                <button className="booking-dialog-secondary" type="button" onClick={() => setPinPromptOpen(false)} disabled={verifyingPin}>Cancel</button>
+                <button className="booking-dialog-primary" type="submit" disabled={verifyingPin}>
+                  {verifyingPin ? 'Checking…' : 'Show amounts'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

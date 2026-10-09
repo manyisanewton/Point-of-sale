@@ -1,4 +1,5 @@
 import './config/env.js';
+import { timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -155,6 +156,31 @@ app.get('/api/admin/session', getOptionalSession, (req, res) => {
     return res.status(401).json({ authenticated: false });
   }
   res.json({ authenticated: true, email: req.adminUser.email });
+});
+
+// Verify the passcode before revealing financial summary amounts.
+app.post('/api/admin/verify-amount-pin', requireAdmin, adminLoginLimiter, async (req, res, next) => {
+  try {
+    const pin = String(req.body?.pin || '');
+    if (!pin || pin.length > 128) return res.status(400).json({ error: 'Enter your report PIN.' });
+
+    const configuredPin = process.env.REPORT_AMOUNT_PIN;
+    let verified = false;
+    if (configuredPin) {
+      const provided = Buffer.from(pin);
+      const expected = Buffer.from(configuredPin);
+      verified = provided.length === expected.length && timingSafeEqual(provided, expected);
+    } else {
+      // Until a separate report PIN is configured, accept the signed-in
+      // administrator's password without storing it in the browser.
+      verified = Boolean(await adminUserRepository.verifyPassword(req.adminUser.email, pin));
+    }
+
+    if (!verified) return res.status(401).json({ error: 'Incorrect PIN. Try again.' });
+    res.json({ verified: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Admin logout

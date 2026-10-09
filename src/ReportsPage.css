@@ -101,6 +101,11 @@
 }
 .rpt-amount-toggle:hover { background: #eff6ff; border-color: #93c5fd; }
 .rpt-amount-toggle:focus-visible { outline: 2px solid #2f80ed; outline-offset: 2px; }
+.rpt-pin-dialog { width: min(100%, 420px); }
+.rpt-pin-field { display: grid; gap: 7px; margin-top: 16px; color: var(--ink); font-size: 14px; font-weight: 700; }
+.rpt-pin-field input { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card-bg); color: var(--ink); font: inherit; }
+.rpt-pin-field input:focus-visible { outline: 2px solid #2f80ed; outline-offset: 2px; }
+.rpt-pin-error { margin: 10px 0 0; color: #b42318 !important; font-size: 13px; }
 
 /* Transactions */
 .rpt-section-title { font-size: 18px; color: var(--navy-dark); margin: 0 0 10px; }

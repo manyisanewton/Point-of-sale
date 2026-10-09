@@ -20,12 +20,15 @@ export function useAmountVisibility() {
     };
   }, []);
 
-  function toggleAmounts() {
-    const nextHidden = !amountsHidden;
-    localStorage.setItem(STORAGE_KEY, String(nextHidden));
-    setAmountsHidden(nextHidden);
+  function setHiddenPreference(hidden) {
+    localStorage.setItem(STORAGE_KEY, String(hidden));
+    setAmountsHidden(hidden);
     window.dispatchEvent(new Event(CHANGE_EVENT));
   }
 
-  return { amountsHidden, toggleAmounts };
+  return {
+    amountsHidden,
+    showAmounts: () => setHiddenPreference(false),
+    hideAmounts: () => setHiddenPreference(true),
+  };
 }
