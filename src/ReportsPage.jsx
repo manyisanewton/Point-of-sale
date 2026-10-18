@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   Calendar,
+  Check,
   FileText,
   Eye,
   EyeOff,
@@ -85,6 +86,8 @@ export default function ReportsPage() {
   const defaults = useMemo(defaultRange, []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
+  const [appliedFrom, setAppliedFrom] = useState(defaults.from);
+  const [appliedTo, setAppliedTo] = useState(defaults.to);
   const [dateWarning, setDateWarning] = useState('');
   const [businessInfo, setBusinessInfo] = useState(null);
   const [printedAt] = useState(() => new Date());
@@ -177,12 +180,21 @@ export default function ReportsPage() {
     setTo(defaults.to);
     setDateWarning('');
   }
+  function applyRange() {
+    if (!from || !to) {
+      setDateWarning('Choose both a start date and an end date to apply this report range.');
+      return;
+    }
+    setAppliedFrom(from);
+    setAppliedTo(to);
+    setDateWarning('');
+  }
 
   const filtered = useMemo(() => transactions.filter((t) => {
-    if (from && t.day < from) return false;
-    if (to && t.day > to) return false;
+    if (appliedFrom && t.day < appliedFrom) return false;
+    if (appliedTo && t.day > appliedTo) return false;
     return true;
-  }), [transactions, from, to]);
+  }), [transactions, appliedFrom, appliedTo]);
 
   const totalCustomers = useMemo(() => new Set(filtered.map((t) => t.customer)).size, [filtered]);
   const totalServices = useMemo(
@@ -232,7 +244,7 @@ export default function ReportsPage() {
     }
   }
 
-  const rangeLabel = from && to ? `${from} to ${to}` : 'all dates';
+  const rangeLabel = appliedFrom && appliedTo ? `${appliedFrom} to ${appliedTo}` : 'all dates';
 
   async function downloadStatement() {
     const { jsPDF } = await import('jspdf');
@@ -439,7 +451,7 @@ export default function ReportsPage() {
       doc.setPage(pageNumber);
       drawStamp((pageHeight - 19) / 2);
     }
-    const filename = `open-doors-statement-${from || 'start'}-to-${to || 'end'}.pdf`;
+    const filename = `open-doors-statement-${appliedFrom || 'start'}-to-${appliedTo || 'end'}.pdf`;
     doc.save(filename);
   }
 
@@ -498,7 +510,8 @@ export default function ReportsPage() {
           <input id="rpt-to" type="date" value={to} min={from || undefined} onChange={(e) => changeTo(e.target.value)} />
         </div>
         <div className="rpt-quick">
-          <button type="button" className="rpt-btn primary" onClick={setToday}><Calendar size={15} /> Today</button>
+          <button type="button" className="rpt-btn primary" onClick={applyRange} disabled={!from || !to}><Check size={15} /> Apply</button>
+          <button type="button" className="rpt-btn outline" onClick={setToday}><Calendar size={15} /> Today</button>
           <button type="button" className="rpt-btn outline" onClick={clearRange}><RotateCcw size={15} /> Clear</button>
         </div>
         <div className="rpt-print">
