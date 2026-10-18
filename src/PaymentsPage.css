@@ -51,11 +51,11 @@
 /* Filters — full-width row on wide screens, roomy wrapping below */
 .payrep-filters {
   display: grid;
-  grid-template-columns: minmax(250px, 1.7fr) repeat(4, minmax(150px, 1fr)) auto;
-  gap: 14px; align-items: end;
+  grid-template-columns: minmax(190px, 1.5fr) repeat(4, minmax(110px, 1fr)) auto;
+  gap: 10px; align-items: end;
   width: 100%;
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 10px; padding: 16px 18px;
+  border-radius: 10px; padding: 12px 14px;
   margin-bottom: 16px;
   box-sizing: border-box;
 }
@@ -86,7 +86,7 @@
 .payrep-apply {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--blue); color: #fff; border: 1px solid var(--blue);
-  border-radius: 8px; height: 38px; padding: 0 14px; font-weight: 700; cursor: pointer;
+  border-radius: 8px; height: 38px; padding: 0 10px; font-weight: 700; cursor: pointer;
   white-space: nowrap;
 }
 .payrep-apply:disabled {
@@ -96,7 +96,7 @@
 .payrep-reset {
   display: inline-flex; align-items: center; gap: 6px;
   background: #fff; color: var(--blue); border: 1px solid var(--blue);
-  border-radius: 8px; height: 38px; padding: 0 14px; font-weight: 700; cursor: pointer;
+  border-radius: 8px; height: 38px; padding: 0 10px; font-weight: 700; cursor: pointer;
   white-space: nowrap;
 }
 .payrep-hint {
@@ -249,7 +249,7 @@
 /* ---------- Responsive ---------- */
 /* Leave room for the POS sidebar: use a balanced two-row filter grid before
    the viewport itself gets narrow enough for tablet layouts. */
-@media (max-width: 1600px) {
+@media (max-width: 1250px) {
   .payrep-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .payrep-dates { grid-column: span 2; }
   .payrep-actions { grid-column: span 2; justify-content: flex-end; }
