@@ -3572,10 +3572,23 @@ footer p {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  height: auto;
+  min-height: 0;
+  padding: 0 0 var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  position: static;
+  top: auto;
+  z-index: auto;
+  box-sizing: border-box;
   margin-bottom: var(--space-6);
   flex-wrap: wrap;
   gap: var(--space-4);
 }
+
+.pos-page-header .eyebrow { margin: 0 0 var(--space-2); }
+.bookings-page-description { margin: 0; color: var(--fg-secondary); font-size: var(--text-base); line-height: var(--leading-relaxed); }
 
 .pos-page-header h1 {
   font-size: var(--text-2xl);

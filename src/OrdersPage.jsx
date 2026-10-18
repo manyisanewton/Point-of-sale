@@ -325,10 +325,10 @@ export default function OrdersPage() {
 
   return (
     <div className="pos-page">
-      <header className="pos-page-header">
+      <header className="pos-page-header bookings-page-header">
         <div>
           <p className="eyebrow">Bookings</p>
-          <h2>View and manage laundry bookings.</h2>
+          <p className="bookings-page-description">View and manage laundry bookings.</p>
         </div>
       </header>
       {!serverKnown && (
