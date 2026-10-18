@@ -4,6 +4,7 @@ import {
   CreditCard,
   Printer,
   X,
+  MessageCircle,
 } from 'lucide-react';
 import { useOfflineOrders } from './hooks/useOffline.js';
 import { upsertServerOrders } from './lib/db.js';
@@ -27,10 +28,15 @@ function bookingStatus(status) {
 }
 
 function whatsappUrl(booking) {
-  const digits = String(booking.phone || '').replace(/\D/g, '');
+  const digits = String(booking.phone || booking.customerPhone || '').replace(/\D/g, '');
   if (!digits) return '';
-  const internationalPhone = digits.startsWith('0') ? `254${digits.slice(1)}` : digits;
-  const message = `Hello ${booking.customerName || booking.name || 'there'}, your laundry order ${booking.receiptNumber || ''} is ready for collection at Open Doors Laundromat.`;
+  const internationalPhone = digits.startsWith('0')
+    ? `254${digits.slice(1)}`
+    : digits.length === 9
+      ? `254${digits}`
+      : digits;
+  const orderReference = booking.receiptNumber ? ` ${booking.receiptNumber}` : '';
+  const message = `Hello ${booking.customerName || booking.name || 'there'}, your laundry order${orderReference} is ready for collection at Open Doors Laundromat.`;
   return `https://wa.me/${internationalPhone}?text=${encodeURIComponent(message)}`;
 }
 
@@ -251,12 +257,17 @@ export default function OrdersPage() {
 
     readyConfirmationInFlight.current = true;
     try {
+      const chatUrl = whatsappUrl(confirmingReady);
+      if (chatUrl) window.open(chatUrl, '_blank', 'noopener,noreferrer');
       const readyBooking = await saveStatus(confirmingReady, 'ready_for_collection');
       if (readyBooking) {
         setSelectedBooking(readyBooking);
         setPaymentMethod(readyBooking.paymentMethod === 'M-Pesa' ? 'M-Pesa' : 'Cash');
         setPaymentReference(readyBooking.paymentReference || '');
         setConfirmingReady(null);
+        setNotice(chatUrl
+          ? 'Booking marked ready. WhatsApp opened with the collection message; press Send in WhatsApp to notify the customer.'
+          : 'Booking marked ready, but no customer phone number is recorded.');
       }
     } finally {
       readyConfirmationInFlight.current = false;
@@ -479,7 +490,7 @@ export default function OrdersPage() {
           <section className="booking-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ready-booking-title">
             <h2 id="ready-booking-title">Ready for collection?</h2>
             <p className="ready-notification-message">
-              Please notify <strong>{confirmingReady.customerName || confirmingReady.name || 'the customer'}</strong> that their laundry items are ready and can now be collected from Open Doors Laundromat.
+              WhatsApp will open with a message for <strong>{confirmingReady.customerName || confirmingReady.name || 'the customer'}</strong> saying their laundry is ready for collection. Press Send in WhatsApp to deliver it.
             </p>
             <div className="ready-customer-contact">
               <span>Customer contact number</span>
@@ -494,7 +505,7 @@ export default function OrdersPage() {
             <div className="booking-dialog-actions">
               <button className="booking-dialog-secondary" type="button" onClick={() => setConfirmingReady(null)} disabled={savingStatus}>Cancel</button>
               <button className="booking-dialog-primary" type="button" onClick={confirmReadyForCollection} disabled={savingStatus}>
-                {savingStatus ? 'Saving…' : 'Yes, Ready for Collection'}
+                {savingStatus ? 'Saving…' : <><MessageCircle size={16} /> Notify via WhatsApp & Mark Ready</>}
               </button>
             </div>
           </section>

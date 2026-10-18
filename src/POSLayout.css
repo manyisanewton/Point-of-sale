@@ -513,6 +513,20 @@
    POS SALE (SERVICE SELECTION + CART)
    ============================================================ */
 
+.sale-page > .pos-page-header {
+  height: auto;
+  min-height: 0;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  position: static;
+  z-index: auto;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sale-page .pos-page-header h2 { margin: 0; }
+
 .sale-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
@@ -559,6 +573,12 @@
   gap: 10px;
   min-height: 260px;
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.sale-page .sale-service-card {
+  min-height: 0;
+  padding: 12px;
+  gap: 7px;
 }
 
 .sale-service-card:hover {
@@ -641,6 +661,18 @@
   cursor: pointer;
 }
 
+.sale-page .service-color-trigger {
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.sale-page .service-color-count {
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .service-color-trigger:hover,
 .service-color-trigger:focus-visible {
   border-color: var(--primary);
@@ -715,6 +747,17 @@
   font-size: var(--text-lg);
   font-weight: 800;
   cursor: pointer;
+}
+
+.sale-page .sale-service-card .qty-controls button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.sale-page .sale-service-card > .btn-primary {
+  min-height: 38px;
+  padding-block: 7px;
 }
 
 .qty-controls output {

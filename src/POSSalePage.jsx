@@ -74,18 +74,25 @@ export default function POSSalePage() {
 
   function handleAdd(service) {
     const colors = colorsByService[service.serviceName] || [];
-    if (!colors.length) {
-      setError(`Select at least one item color for ${service.serviceName} before adding it.`);
+    const qty = clampQty(qtyByService[service.serviceName] || 1);
+    if (colors.length !== qty) {
+      setError(`Select exactly ${qty} color${qty === 1 ? '' : 's'} for ${qty} item${qty === 1 ? '' : 's'} of ${service.serviceName}.`);
       return;
     }
     setError('');
-    const qty = clampQty(qtyByService[service.serviceName] || 1);
     setCart((prev) => addToCart(prev, service, qty, colors.join(', ')));
     setQtyByService((prev) => ({ ...prev, [service.serviceName]: 1 }));
     setColorsByService((prev) => ({ ...prev, [service.serviceName]: [] }));
   }
 
   function toggleServiceColor(serviceName, color) {
+    const selected = colorsByService[serviceName] || [];
+    const required = clampQty(qtyByService[serviceName] || 1);
+    if (!selected.includes(color) && selected.length >= required) {
+      setError(`This service has ${required} item${required === 1 ? '' : 's'}; select exactly ${required} color${required === 1 ? '' : 's'}.`);
+      return;
+    }
+    setError('');
     setColorsByService((current) => {
       const colors = current[serviceName] || [];
       return {
@@ -291,7 +298,7 @@ export default function POSSalePage() {
   }
 
   return (
-    <div className="pos-page">
+    <div className="pos-page sale-page">
       <header className="pos-page-header">
         <div>
           <p className="eyebrow">Point of sale</p>
@@ -340,7 +347,10 @@ export default function POSSalePage() {
             <p className="cart-empty">No services match “{search}”.</p>
           ) : (
             <div className="sale-services">
-              {filteredCatalog.map((s) => (
+              {filteredCatalog.map((s) => {
+                const selectedColors = colorsByService[s.serviceName] || [];
+                const quantity = clampQty(qtyByService[s.serviceName] || 1);
+                return (
                 <article key={`${s.category}-${s.serviceName}`} className="sale-service-card">
                   <b>{s.serviceName}</b>
                   <span>{s.category}</span>
@@ -356,7 +366,7 @@ export default function POSSalePage() {
                         aria-label={`Choose item colors for ${s.serviceName}`}
                         onClick={() => setOpenColorPicker((current) => current === s.serviceName ? '' : s.serviceName)}
                       >
-                        <span>{(colorsByService[s.serviceName] || []).join(', ') || 'Select colors'}</span>
+                        <span>{selectedColors.join(', ') || 'Select colors'}</span>
                         <span aria-hidden="true">▾</span>
                       </button>
                       {openColorPicker === s.serviceName && (
@@ -365,7 +375,7 @@ export default function POSSalePage() {
                             <label key={color}>
                               <input
                                 type="checkbox"
-                                checked={(colorsByService[s.serviceName] || []).includes(color)}
+                                checked={selectedColors.includes(color)}
                                 onChange={() => toggleServiceColor(s.serviceName, color)}
                                 aria-label={`${color} for ${s.serviceName}`}
                               />
@@ -376,6 +386,9 @@ export default function POSSalePage() {
                         </div>
                       )}
                     </div>
+                    <small className="service-color-count" aria-live="polite">
+                      {selectedColors.length} of {quantity} colors selected
+                    </small>
                   </div>
                   <div className="qty-controls">
                     <button
@@ -387,7 +400,7 @@ export default function POSSalePage() {
                     >
                       −
                     </button>
-                    <output aria-label="Quantity">{qtyByService[s.serviceName] || 1}</output>
+                    <output aria-label="Quantity">{quantity}</output>
                     <button
                       type="button"
                       aria-label={`Increase quantity for ${s.serviceName}`}
@@ -402,7 +415,8 @@ export default function POSSalePage() {
                     <Plus size={16} /> Add
                   </button>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
           {catalogSyncedAt && (
