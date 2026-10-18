@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Receipt, Trash2, RefreshCw, MessageCircle, X, Filter, Download } from 'lucide-react';
+import { Plus, Receipt, Trash2, RefreshCw, MessageCircle, X, Filter, Download, Search } from 'lucide-react';
 import './ExpensesPage.css';
 
 const today = () => {
@@ -8,6 +8,7 @@ const today = () => {
 };
 const monthStart = () => `${today().slice(0, 7)}-01`;
 const money = (amount) => `KSh ${Number(amount || 0).toLocaleString('en-KE')}`;
+const formatTime = (value) => value ? new Date(value).toLocaleTimeString('en-KE', { hour: 'numeric', minute: '2-digit' }) : '';
 const BUSINESS_WHATSAPP = '254119444972';
 const blankExpense = () => ({ description: '', category: 'Supplies', amount: '', expenseDate: today() });
 const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -15,18 +16,29 @@ const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1)
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
   const [forms, setForms] = useState([blankExpense()]);
+  const [creatorName, setCreatorName] = useState(() => {
+    try { return localStorage.getItem('expense-created-by') || ''; } catch { return ''; }
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [filterDraft, setFilterDraft] = useState({ from: monthStart(), to: today() });
   const [activeFilter, setActiveFilter] = useState({ from: monthStart(), to: today() });
+  const [categorySearch, setCategorySearch] = useState('');
+  const [activeCategorySearch, setActiveCategorySearch] = useState(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/admin/expenses');
       if (!res.ok) throw new Error('Could not load expenses. Check your connection and retry.');
-      setExpenses(await res.json());
+      const loaded = await res.json();
+      setExpenses(loaded);
+      setCreatorName((current) => {
+        if (current || !loaded[0]?.createdBy) return current;
+        try { localStorage.setItem('expense-created-by', loaded[0].createdBy); } catch { /* Storage may be unavailable. */ }
+        return loaded[0].createdBy;
+      });
     } catch (e) { setError(e.message || 'Could not load expenses.'); }
     finally { setLoading(false); }
   }, []);
@@ -40,10 +52,30 @@ export default function ExpensesPage() {
     }).reduce((total, item) => total + Number(item.amount || 0), 0);
   }, [expenses]);
 
-  const filteredExpenses = useMemo(() => expenses.filter((item) => {
+  const dateFilteredExpenses = useMemo(() => expenses.filter((item) => {
     const expenseDate = localDate(new Date(item.expenseDate));
     return (!activeFilter.from || expenseDate >= activeFilter.from) && (!activeFilter.to || expenseDate <= activeFilter.to);
   }), [expenses, activeFilter]);
+
+  const categorySummary = useMemo(() => {
+    if (activeCategorySearch === null) return [];
+    const query = activeCategorySearch.trim().toLowerCase();
+    const groups = new Map();
+    for (const expense of dateFilteredExpenses) {
+      const category = expense.category || 'Other';
+      if (query && !category.toLowerCase().includes(query)) continue;
+      const group = groups.get(category) || { category, count: 0, amount: 0 };
+      group.count += 1;
+      group.amount += Number(expense.amount || 0);
+      groups.set(category, group);
+    }
+    return [...groups.values()].sort((a, b) => a.category.localeCompare(b.category));
+  }, [dateFilteredExpenses, activeCategorySearch]);
+
+  const filteredExpenses = useMemo(() => dateFilteredExpenses.filter((item) => {
+    if (activeCategorySearch === null || !activeCategorySearch.trim()) return true;
+    return (item.category || 'Other').toLowerCase().includes(activeCategorySearch.trim().toLowerCase());
+  }), [dateFilteredExpenses, activeCategorySearch]);
 
   async function downloadStatement() {
     const total = filteredExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -127,7 +159,7 @@ export default function ExpensesPage() {
     try {
       const res = await fetch('/api/admin/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expenses: forms.map((form) => ({ ...form, amount: Number(form.amount) })) }),
+        body: JSON.stringify({ expenses: forms.map((form) => ({ ...form, amount: Number(form.amount), createdBy: creatorName.trim() })) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not save these expenses.');
@@ -141,10 +173,27 @@ export default function ExpensesPage() {
     setForms((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
   }
 
+  function updateCreatorName(value) {
+    setCreatorName(value);
+    try { localStorage.setItem('expense-created-by', value); } catch { /* Storage may be unavailable. */ }
+  }
+
+  const creatorOptions = [...new Set([...expenses.map((item) => item.createdBy).filter(Boolean), creatorName].filter(Boolean))];
+
   function notifyLiz(item) {
     const message = `New expense recorded\nDescription: ${item.description}\nCategory: ${item.category}\nAmount: ${money(item.amount)}\nDate: ${new Date(item.expenseDate).toLocaleDateString('en-KE')}\nCreated by: ${item.createdBy || 'Admin'}`;
     const url = `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  async function markNotified(item) {
+    try {
+      const res = await fetch(`/api/admin/expenses/${encodeURIComponent(item.id)}/notified`, { method: 'PATCH' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update notification status.');
+      setExpenses((items) => items.map((expense) => expense.id === item.id ? data : expense));
+      setError('');
+    } catch (e) { setError(e.message || 'Could not update notification status.'); }
   }
 
   async function removeExpense(item) {
@@ -162,6 +211,7 @@ export default function ExpensesPage() {
     <section className="expenses-panel">
       <div className="expenses-entry-heading"><h2><Plus size={19} /> Add expenses</h2><button className="expenses-add-row" type="button" onClick={() => setForms((items) => [...items, blankExpense()])}><Plus size={16} /> Add another row</button></div>
       <form className="expenses-batch-form" onSubmit={submit}>
+        <label className="expenses-created-by" htmlFor="expense-created-by">Created by<input id="expense-created-by" required maxLength="80" list="expense-creators" value={creatorName} onChange={(e) => updateCreatorName(e.target.value)} placeholder="Type or select an admin" /><datalist id="expense-creators">{creatorOptions.map((name) => <option key={name} value={name} />)}</datalist></label>
         {forms.map((form, index) => <div className="expenses-form" key={index}>
           <label>Category<input list={`expense-categories-${index}`} maxLength="60" value={form.category} onChange={(e) => updateForm(index, 'category', e.target.value)} placeholder="Choose or enter a category" /><datalist id={`expense-categories-${index}`}>{['Supplies', 'Rent', 'Utilities', 'Transport', 'Maintenance', 'Payroll', 'Other'].map((value) => <option key={value} value={value} />)}</datalist></label>
           <label>Description<input required maxLength="160" value={form.description} onChange={(e) => updateForm(index, 'description', e.target.value)} placeholder="e.g. Detergent purchase" /></label>
@@ -179,7 +229,9 @@ export default function ExpensesPage() {
         <label>To Date<input type="date" value={filterDraft.to} onChange={(e) => setFilterDraft({ ...filterDraft, to: e.target.value })} /></label>
         <button type="button" className="expenses-tool-button" onClick={() => setActiveFilter(filterDraft)}><Filter size={16} /> Filter</button>
       </div><button type="button" className="expenses-tool-button expenses-download" onClick={downloadStatement}><Download size={16} /> Download PDF statement</button></div>
-      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : filteredExpenses.length === 0 ? <p className="expenses-empty">No expenses match this filter.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Created by</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{filteredExpenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td>{item.createdBy || 'Admin'}</td><td className="expenses-amount">{money(item.amount)}</td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
+      <div className="expenses-category-search"><label>Search categories<input list="expense-category-search-options" value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setActiveCategorySearch(categorySearch); } }} placeholder="Type a category or leave blank for all" /><datalist id="expense-category-search-options">{[...new Set(expenses.map((item) => item.category).filter(Boolean))].map((category) => <option key={category} value={category} />)}</datalist></label><button type="button" className="expenses-tool-button" onClick={() => setActiveCategorySearch(categorySearch)}><Search size={16} /> Search categories</button></div>
+      {activeCategorySearch !== null && <div className="expenses-category-results" aria-live="polite"><div className="expenses-category-results-heading"><div><strong>Category totals</strong><small>{activeCategorySearch.trim() ? `Matching “${activeCategorySearch.trim()}”` : 'All categories'} · selected date range</small></div><button type="button" onClick={() => { setActiveCategorySearch(null); setCategorySearch(''); }}>Clear search</button></div>{categorySummary.length ? <div className="expenses-category-cards">{categorySummary.map((group) => <article className="expenses-category-card" key={group.category}><span>{group.category}</span><strong>{money(group.amount)}</strong><small>{group.count} expense{group.count === 1 ? '' : 's'}</small></article>)}</div> : <p className="expenses-empty">No categories match this search and date range.</p>}</div>}
+      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : filteredExpenses.length === 0 ? <p className="expenses-empty">No expenses match this filter.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date &amp; time</th><th>Description</th><th>Category</th><th>Created by</th><th>Amount</th><th>Notify status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{filteredExpenses.map((item) => <tr key={item.id}><td><span>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</span><small className="expenses-row-time">Added {formatTime(item.createdAt)}</small></td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td>{item.createdBy || 'Admin'}</td><td className="expenses-amount">{money(item.amount)}</td><td><span className={`expenses-notify-status ${item.notifiedAt ? 'done' : 'pending'}`}>{item.notifiedAt ? 'Notified' : 'Pending'}</span><small className="expenses-row-time">{item.notifiedAt ? `Notified ${formatTime(item.notifiedAt)}` : 'Waiting for Liz'}</small></td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button>{!item.notifiedAt && <button className="expenses-mark-notified" type="button" onClick={() => markNotified(item)}>Mark notified</button>}<button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
     </section>
   </section>;
 }

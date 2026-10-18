@@ -324,6 +324,8 @@ async function ensureExpenseTable() {
     "description" TEXT NOT NULL,
     "category" TEXT NOT NULL DEFAULT 'Other',
     "amount" INTEGER NOT NULL,
+    "createdBy" TEXT NOT NULL DEFAULT 'Admin',
+    "notifiedAt" DATETIME,
     "expenseDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
@@ -332,6 +334,9 @@ async function ensureExpenseTable() {
   const columns = await prisma.$queryRaw`PRAGMA table_info("expenses")`;
   if (!columns.some((column) => column.name === 'createdBy')) {
     await prisma.$executeRaw`ALTER TABLE "expenses" ADD COLUMN "createdBy" TEXT NOT NULL DEFAULT 'Admin'`;
+  }
+  if (!columns.some((column) => column.name === 'notifiedAt')) {
+    await prisma.$executeRaw`ALTER TABLE "expenses" ADD COLUMN "notifiedAt" DATETIME`;
   }
 }
 
@@ -355,7 +360,9 @@ app.post('/api/admin/expenses', requireAdmin, async (req, res, next) => {
       const expenseDate = entry.expenseDate ? new Date(`${entry.expenseDate}T12:00:00`) : new Date();
       if (!description || description.length > 160 || !Number.isSafeInteger(amount) || amount <= 0 || Number.isNaN(expenseDate.getTime())) return null;
       const emailName = String(req.adminUser?.email || '').split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-      return { id: randomUUID(), description, category, amount, expenseDate, now: new Date(), createdBy: emailName || 'Admin' };
+      const createdBy = String(entry.createdBy || emailName || 'Admin').trim();
+      if (!createdBy || createdBy.length > 80) return null;
+      return { id: randomUUID(), description, category, amount, expenseDate, now: new Date(), createdBy };
     });
     if (normalized.some((entry) => !entry)) return res.status(400).json({ error: 'Each expense needs a description, valid date, and positive whole-number amount.' });
     const saved = await prisma.$transaction(async (tx) => {
@@ -368,6 +375,17 @@ app.post('/api/admin/expenses', requireAdmin, async (req, res, next) => {
       }));
     });
     res.status(201).json(saved);
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/admin/expenses/:id/notified', requireAdmin, async (req, res, next) => {
+  try {
+    await ensureExpenseTable();
+    const notifiedAt = new Date();
+    const updated = await prisma.$executeRaw`UPDATE "expenses" SET "notifiedAt" = ${notifiedAt}, "updatedAt" = ${notifiedAt} WHERE "id" = ${req.params.id}`;
+    if (!updated) return res.status(404).json({ error: 'Expense not found.' });
+    const [expense] = await prisma.$queryRaw`SELECT * FROM "expenses" WHERE "id" = ${req.params.id}`;
+    res.json(expense);
   } catch (error) { next(error); }
 });
 

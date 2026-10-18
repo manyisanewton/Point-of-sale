@@ -178,6 +178,7 @@ model Expense {
   category    String   @default("Other")
   amount      Int
   createdBy   String   @default("Admin")
+  notifiedAt  DateTime?
   expenseDate DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
