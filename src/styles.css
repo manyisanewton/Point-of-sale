@@ -3307,6 +3307,14 @@ footer p {
   flex: 1;
 }
 
+/* Keep the dashboard heading and subtitle clear of the page divider. */
+.dashboard > div > .dash-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+}
+
 .dash-header {
   display: flex;
   justify-content: space-between;
