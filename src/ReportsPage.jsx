@@ -401,7 +401,7 @@ export default function ReportsPage() {
         pdfText(transaction.day), null, null,
         pdfText(transaction.contact), null,
         transaction.status === 'paid' ? 'Paid' : 'Pending',
-        `KSh ${transaction.amount.toLocaleString()}`,
+        amountsHidden ? '------' : `KSh ${transaction.amount.toLocaleString()}`,
       ];
       singleLineValues.forEach((value, index) => {
         if (value !== null) doc.text(value, columns[index].x, baseline);
@@ -427,7 +427,7 @@ export default function ReportsPage() {
     doc.setFontSize(8);
     doc.setTextColor(80, 95, 112);
     doc.text(`Showing ${filtered.length} record${filtered.length === 1 ? '' : 's'} | ${pdfText(rangeLabel)}`, margin, y);
-    const totalLabel = `Total Amount Made: KSh ${amountMade.toLocaleString()}`;
+    const totalLabel = `Total Amount Made: ${amountsHidden ? '------' : `KSh ${amountMade.toLocaleString()}`}`;
     const totalWidth = doc.getTextWidth(totalLabel) + 9;
     doc.setFillColor(234, 240, 246);
     doc.roundedRect(pageWidth - margin - totalWidth, y - 5, totalWidth, 8, 1.5, 1.5, 'F');
@@ -568,7 +568,7 @@ export default function ReportsPage() {
                   <td className="rpt-contact">{t.contact}</td>
                   <td>{t.servedBy}</td>
                   <td><StatusPill status={t.status} /></td>
-                  <td className="num">KSh {t.amount.toLocaleString()}</td>
+                  <td className="num">{displayAmount(t.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -591,7 +591,7 @@ export default function ReportsPage() {
               </ul>
               <footer>
                 <span>{t.contact} · {t.servedBy}</span>
-                <b>KSh {t.amount.toLocaleString()}</b>
+                <b>{displayAmount(t.amount)}</b>
               </footer>
             </section>
           ))}
@@ -599,7 +599,7 @@ export default function ReportsPage() {
 
         <div className="rpt-foot">
           <span>Showing {filtered.length} record{filtered.length === 1 ? '' : 's'} from {rangeLabel}</span>
-          <span className="rpt-total">Total Amount Made: <b>KSh {amountMade.toLocaleString()}</b></span>
+          <span className="rpt-total">Total Amount Made: <b>{displayAmount(amountMade)}</b></span>
         </div>
       </div>
       {pinPromptOpen && (
