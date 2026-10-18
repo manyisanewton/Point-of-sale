@@ -90,8 +90,11 @@ export default function LoginPage() {
       <div className="login-page">
         <div className="login-container">
           <div className="login-brand">
-            <span className="login-logo">OPEN DOORS</span>
-            <small>POINT OF SALE</small>
+            <img className="login-brand-mark" src="/assets/logo.jpg" alt="Open Doors Laundromat logo" />
+            <div className="login-brand-copy">
+              <span className="login-logo">OPEN DOORS</span>
+              <small>POINT OF SALE</small>
+            </div>
           </div>
 
           <div className="login-card">
