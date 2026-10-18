@@ -49,7 +49,7 @@ export default function CustomersPage() {
   const [deletingCustomerId, setDeletingCustomerId] = useState(null);
   const [showWhatsAppComposer, setShowWhatsAppComposer] = useState(false);
   const [outreachStaff, setOutreachStaff] = useState('');
-  const [outreachAllCustomers, setOutreachAllCustomers] = useState(false);
+  const [outreachAllCustomers, setOutreachAllCustomers] = useState(true);
   const [outreachMessage, setOutreachMessage] = useState('');
   const [confirmedOutreachOptIn, setConfirmedOutreachOptIn] = useState(false);
   const [sendingOutreach, setSendingOutreach] = useState(false);
@@ -205,6 +205,12 @@ export default function CustomersPage() {
       if (!response.ok) throw new Error(result.error || 'Could not send the WhatsApp campaign.');
       setOutreachResult(result);
     } catch (error) {
+      if (error instanceof TypeError) {
+        setManualWhatsAppMode(true);
+        setManualWhatsAppIndex(0);
+        setOutreachError('Could not reach the WhatsApp sending service. Open each WhatsApp chat below and press Send to deliver the message.');
+        return;
+      }
       setOutreachError(error.message || 'Could not send the WhatsApp campaign.');
     } finally {
       setSendingOutreach(false);
@@ -226,7 +232,6 @@ export default function CustomersPage() {
       <header className="pos-page-header">
         <div>
           <p className="eyebrow">Customers</p>
-          <h2>Customer directory.</h2>
         </div>
         <div className="customer-directory-actions">
           <div className="pos-search">
