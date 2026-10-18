@@ -16,6 +16,7 @@ import {
   Landmark,
   Smartphone,
   Wallet,
+  Search,
 } from 'lucide-react';
 import './PaymentsPage.css';
 import { useAmountVisibility } from './hooks/useAmountVisibility.js';
@@ -104,6 +105,15 @@ function formatToday() {
   return `${date}  ${time}`;
 }
 
+function customerGroupKey(customer) {
+  const digits = String(customer.phone || '').replace(/\D/g, '');
+  if (digits.length >= 9) {
+    const normalizedPhone = digits.startsWith('0') && digits.length === 10 ? `254${digits.slice(1)}` : digits;
+    return `phone:${normalizedPhone}`;
+  }
+  return `name:${String(customer.customer || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ')}`;
+}
+
 function MethodBadge({ method }) {
   const m = normalizeMethod(method);
   if (m === 'M-PESA') return <span className="payrep-method"><span className="payrep-micon mpesa"><Smartphone size={12} /></span> M-PESA</span>;
@@ -130,6 +140,8 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dateWarning, setDateWarning] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
 
   const defaults = useMemo(monthRange, []);
   const [draft, setDraft] = useState({ start: defaults.start, end: defaults.end, customer: 'all', service: 'all', method: 'all', status: 'all' });
@@ -179,11 +191,30 @@ export default function PaymentsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const customers = useMemo(() => [...new Set(lines.map((l) => l.customer))].sort(), [lines]);
+  const customers = useMemo(() => {
+    const groups = new Map();
+    for (const line of lines) {
+      const key = customerGroupKey(line);
+      const group = groups.get(key) || { key, label: line.customer, names: new Set(), phone: line.phone || '' };
+      group.names.add(line.customer);
+      // Prefer a normally capitalized version when source records differ only by letter case.
+      if (group.label === group.label.toLowerCase() && line.customer !== line.customer.toLowerCase()) group.label = line.customer;
+      if (!group.phone && line.phone) group.phone = line.phone;
+      groups.set(key, group);
+    }
+    return [...groups.values()].map((group) => ({ ...group, names: [...group.names] })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [lines]);
+  const matchingCustomers = useMemo(() => customers.filter((customer) => customer.names.some((name) => name.toLowerCase().includes(customerSearch.trim().toLowerCase())) || customer.phone.includes(customerSearch.trim())), [customers, customerSearch]);
+
+  function chooseCustomer(value) {
+    setDraft((current) => ({ ...current, customer: value }));
+    setCustomerSearch(value === 'all' ? '' : customers.find((customer) => customer.key === value)?.label || '');
+    setCustomerMenuOpen(false);
+  }
   const services = useMemo(() => [...new Set(lines.map((l) => l.service))].sort(), [lines]);
 
   const filtered = useMemo(() => lines.filter((l) => {
-    if (applied.customer !== 'all' && l.customer !== applied.customer) return false;
+    if (applied.customer !== 'all' && customerGroupKey(l) !== applied.customer) return false;
     if (applied.service !== 'all' && l.service !== applied.service) return false;
     if (applied.method !== 'all' && normalizeMethod(l.paymentMethod) !== applied.method) return false;
     if (applied.status !== 'all' && l.paymentStatus !== applied.status) return false;
@@ -243,7 +274,7 @@ export default function PaymentsPage() {
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(applied);
   const activeChips = [];
-  if (applied.customer !== 'all') activeChips.push({ key: 'customer', label: applied.customer });
+  if (applied.customer !== 'all') activeChips.push({ key: 'customer', label: customers.find((customer) => customer.key === applied.customer)?.label || applied.customer });
   if (applied.service !== 'all') activeChips.push({ key: 'service', label: applied.service });
   if (applied.method !== 'all') activeChips.push({ key: 'method', label: applied.method });
   if (applied.status !== 'all') activeChips.push({ key: 'status', label: applied.status });
@@ -296,12 +327,13 @@ export default function PaymentsPage() {
             <input id="payrep-end" type="date" value={draft.end} min={draft.start || undefined} onChange={(e) => setDraft((d) => ({ ...d, end: e.target.value }))} aria-label="End date" />
           </div>
         </div>
-        <div className="payrep-field">
+        <div className={`payrep-field payrep-customer-field ${customerMenuOpen ? 'open' : ''}`}>
           <label htmlFor="payrep-customer">Customer</label>
-          <select id="payrep-customer" value={draft.customer} onChange={(e) => setDraft((d) => ({ ...d, customer: e.target.value }))}>
-            <option value="all">All Customers</option>
-            {customers.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <div className="payrep-customer-picker">
+            <Search size={15} aria-hidden="true" />
+            <input id="payrep-customer" type="search" role="combobox" aria-autocomplete="list" aria-expanded={customerMenuOpen} aria-controls="payrep-customer-options" autoComplete="off" placeholder="All Customers" value={customerMenuOpen ? customerSearch : draft.customer === 'all' ? '' : customers.find((customer) => customer.key === draft.customer)?.label || ''} onFocus={() => { setCustomerSearch(draft.customer === 'all' ? '' : customers.find((customer) => customer.key === draft.customer)?.label || ''); setCustomerMenuOpen(true); }} onChange={(e) => { setCustomerSearch(e.target.value); setCustomerMenuOpen(true); }} onBlur={() => window.setTimeout(() => setCustomerMenuOpen(false), 120)} />
+            {customerMenuOpen && <div className="payrep-customer-options" id="payrep-customer-options" role="listbox"><button type="button" role="option" aria-selected={draft.customer === 'all'} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseCustomer('all')}>All Customers</button>{matchingCustomers.map((customer) => <button type="button" role="option" aria-selected={draft.customer === customer.key} key={customer.key} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseCustomer(customer.key)}>{customer.label}</button>)}{matchingCustomers.length === 0 && <span className="payrep-customer-no-match">No matching customers</span>}</div>}
+          </div>
         </div>
         <div className="payrep-field">
           <label htmlFor="payrep-service">Service</label>
