@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   ArrowUpRight,
   Banknote,
   Check,
@@ -239,6 +240,11 @@ export default function AdminDashboard() {
           {tab === 'overview' && (
             <button className="dash-new-order" type="button" onClick={() => navigate('/new-order')}>
               <Plus size={18} /> New order
+            </button>
+          )}
+          {tab === 'pricing' && (
+            <button className="sale-manage-services" type="button" onClick={() => navigate('/new-order')}>
+              <ArrowLeft size={17} /> Back to booking
             </button>
           )}
         </header>

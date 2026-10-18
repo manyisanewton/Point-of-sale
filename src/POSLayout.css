@@ -223,11 +223,13 @@
 .pos-user-email {
   display: block;
   min-width: 0;
+  overflow: hidden;
   color: #f1f5f9;
   font-size: 11px;
   font-weight: 650;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .pos-user-offline {
