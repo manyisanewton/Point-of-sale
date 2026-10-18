@@ -106,12 +106,14 @@ function formatToday() {
 }
 
 function customerGroupKey(customer) {
+  const normalizedName = String(customer.customer || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+  if (normalizedName) return `name:${normalizedName}`;
   const digits = String(customer.phone || '').replace(/\D/g, '');
   if (digits.length >= 9) {
     const normalizedPhone = digits.startsWith('0') && digits.length === 10 ? `254${digits.slice(1)}` : digits;
     return `phone:${normalizedPhone}`;
   }
-  return `name:${String(customer.customer || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ')}`;
+  return 'name:unknown';
 }
 
 function MethodBadge({ method }) {
@@ -142,6 +144,8 @@ export default function PaymentsPage() {
   const [dateWarning, setDateWarning] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceMenuOpen, setServiceMenuOpen] = useState(false);
 
   const defaults = useMemo(monthRange, []);
   const [draft, setDraft] = useState({ start: defaults.start, end: defaults.end, customer: 'all', service: 'all', method: 'all', status: 'all' });
@@ -212,15 +216,25 @@ export default function PaymentsPage() {
     setCustomerMenuOpen(false);
   }
   const services = useMemo(() => [...new Set(lines.map((l) => l.service))].sort(), [lines]);
+  const matchingServices = useMemo(() => services.filter((service) => service.toLowerCase().includes(serviceSearch.trim().toLowerCase())), [services, serviceSearch]);
+
+  function chooseService(value) {
+    setDraft((current) => ({ ...current, service: value }));
+    setServiceSearch(value === 'all' ? '' : value);
+    setServiceMenuOpen(false);
+  }
 
   const filtered = useMemo(() => lines.filter((l) => {
     if (applied.customer !== 'all' && customerGroupKey(l) !== applied.customer) return false;
     if (applied.service !== 'all' && l.service !== applied.service) return false;
     if (applied.method !== 'all' && normalizeMethod(l.paymentMethod) !== applied.method) return false;
     if (applied.status !== 'all' && l.paymentStatus !== applied.status) return false;
-    const day = String(l.date || '').slice(0, 10);
-    if (applied.start && day < applied.start) return false;
-    if (applied.end && day > applied.end) return false;
+    // A selected customer view intentionally includes their full payment history.
+    if (applied.customer === 'all') {
+      const day = String(l.date || '').slice(0, 10);
+      if (applied.start && day < applied.start) return false;
+      if (applied.end && day > applied.end) return false;
+    }
     return true;
   }), [lines, applied]);
 
@@ -279,7 +293,7 @@ export default function PaymentsPage() {
   if (applied.service !== 'all') activeChips.push({ key: 'service', label: applied.service });
   if (applied.method !== 'all') activeChips.push({ key: 'method', label: applied.method });
   if (applied.status !== 'all') activeChips.push({ key: 'status', label: applied.status });
-  if (applied.start || applied.end) activeChips.push({ key: 'dates', label: `${applied.start || '…'} → ${applied.end || '…'}` });
+  if (applied.customer === 'all' && (applied.start || applied.end)) activeChips.push({ key: 'dates', label: `${applied.start || '…'} → ${applied.end || '…'}` });
   function clearChip(key) {
     const next = { ...applied, [key]: key === 'dates' ? undefined : 'all' };
     if (key === 'dates') { next.start = ''; next.end = ''; }
@@ -336,12 +350,13 @@ export default function PaymentsPage() {
             {customerMenuOpen && <div className="payrep-customer-options" id="payrep-customer-options" role="listbox"><button type="button" role="option" aria-selected={draft.customer === 'all'} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseCustomer('all')}>All Customers</button>{matchingCustomers.map((customer) => <button type="button" role="option" aria-selected={draft.customer === customer.key} key={customer.key} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseCustomer(customer.key)}>{customer.label}</button>)}{matchingCustomers.length === 0 && <span className="payrep-customer-no-match">No matching customers</span>}</div>}
           </div>
         </div>
-        <div className="payrep-field">
+        <div className={`payrep-field payrep-service-field ${serviceMenuOpen ? 'open' : ''}`}>
           <label htmlFor="payrep-service">Service</label>
-          <select id="payrep-service" value={draft.service} onChange={(e) => setDraft((d) => ({ ...d, service: e.target.value }))}>
-            <option value="all">All Services</option>
-            {services.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div className="payrep-customer-picker">
+            <Search size={15} aria-hidden="true" />
+            <input id="payrep-service" type="search" role="combobox" aria-autocomplete="list" aria-expanded={serviceMenuOpen} aria-controls="payrep-service-options" autoComplete="off" placeholder="All Services" value={serviceMenuOpen ? serviceSearch : draft.service === 'all' ? '' : draft.service} onFocus={() => { setServiceSearch(draft.service === 'all' ? '' : draft.service); setServiceMenuOpen(true); }} onChange={(e) => { setServiceSearch(e.target.value); setServiceMenuOpen(true); }} onBlur={() => window.setTimeout(() => setServiceMenuOpen(false), 120)} />
+            {serviceMenuOpen && <div className="payrep-customer-options" id="payrep-service-options" role="listbox"><button type="button" role="option" aria-selected={draft.service === 'all'} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseService('all')}>All Services</button>{matchingServices.map((service) => <button type="button" role="option" aria-selected={draft.service === service} key={service} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseService(service)}>{service}</button>)}{matchingServices.length === 0 && <span className="payrep-customer-no-match">No matching services</span>}</div>}
+          </div>
         </div>
         <div className="payrep-field">
           <label htmlFor="payrep-method">Payment Method</label>
@@ -366,6 +381,7 @@ export default function PaymentsPage() {
         </div>
       </form>
       {dateWarning && <p className="payrep-hint" role="status">{dateWarning}</p>}
+      {applied.customer !== 'all' && <p className="payrep-hint" role="status">Showing all payment records for this customer, across all dates.</p>}
       {activeChips.length > 0 && (
         <div className="payrep-chips" aria-live="polite">
           <span className="payrep-chips-label">Active:</span>

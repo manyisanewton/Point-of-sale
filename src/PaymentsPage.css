@@ -67,7 +67,7 @@
   background: #fff; padding: 0 10px; font-size: 13px; color: var(--ink);
   min-width: 0;
 }
-.payrep-customer-field { position:relative; z-index:1; }.payrep-customer-field.open { z-index:12; }.payrep-customer-picker { position:relative; }.payrep-customer-picker > svg { position:absolute; left:10px; top:50%; z-index:1; transform:translateY(-50%); color:var(--muted); pointer-events:none; }.payrep-customer-picker input { padding-left:32px; }.payrep-customer-picker input:focus { border-color:var(--blue); outline:2px solid rgba(26,115,232,.18); outline-offset:0; }.payrep-customer-options { position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30; max-height:240px; overflow-y:auto; padding:4px; border:1px solid var(--line); border-radius:8px; background:#fff; box-shadow:0 8px 22px rgba(15,42,74,.16); }.payrep-customer-options button { display:block; width:100%; padding:8px 10px; border:0; border-radius:5px; background:transparent; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }.payrep-customer-options button:hover,.payrep-customer-options button[aria-selected="true"] { background:#eaf3ff; color:var(--navy-dark); }.payrep-customer-no-match { display:block; padding:9px 10px; color:var(--muted); }
+.payrep-customer-field,.payrep-service-field { position:relative; z-index:1; }.payrep-customer-field.open,.payrep-service-field.open { z-index:12; }.payrep-customer-picker { position:relative; }.payrep-customer-picker > svg { position:absolute; left:10px; top:50%; z-index:1; transform:translateY(-50%); color:var(--muted); pointer-events:none; }.payrep-customer-picker input { padding-left:32px; }.payrep-customer-picker input:focus { border-color:var(--blue); outline:2px solid rgba(26,115,232,.18); outline-offset:0; }.payrep-customer-options { position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30; max-height:240px; overflow-y:auto; padding:4px; border:1px solid var(--line); border-radius:8px; background:#fff; box-shadow:0 8px 22px rgba(15,42,74,.16); }.payrep-customer-options button { display:block; width:100%; padding:8px 10px; border:0; border-radius:5px; background:transparent; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }.payrep-customer-options button:hover,.payrep-customer-options button[aria-selected="true"] { background:#eaf3ff; color:var(--navy-dark); }.payrep-customer-no-match { display:block; padding:9px 10px; color:var(--muted); }
 .payrep-field select:focus-visible,
 .payrep-date-inputs input:focus-visible,
 .payrep-apply:focus-visible,
@@ -247,12 +247,14 @@
 }
 
 /* ---------- Responsive ---------- */
-/* Below ~1400px viewport the 6-across filter row gets squeezed
-   (sidebar takes ~196px), so wrap early into roomy 3 columns. */
-@media (max-width: 1400px) {
-  .payrep-filters { grid-template-columns: repeat(3, 1fr); }
+/* Leave room for the POS sidebar: use a balanced two-row filter grid before
+   the viewport itself gets narrow enough for tablet layouts. */
+@media (max-width: 1600px) {
+  .payrep-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .payrep-dates { grid-column: span 2; }
-  .payrep-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .payrep-actions { grid-column: span 2; justify-content: flex-end; }
+}
+@media (max-width: 1400px) {
   .payrep-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 900px) {
