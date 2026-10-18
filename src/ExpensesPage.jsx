@@ -19,6 +19,7 @@ export default function ExpensesPage() {
   const [creatorName, setCreatorName] = useState(() => {
     try { return localStorage.getItem('expense-created-by') || ''; } catch { return ''; }
   });
+  const [customCreator, setCustomCreator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -165,6 +166,7 @@ export default function ExpensesPage() {
       if (!res.ok) throw new Error(data.error || 'Could not save these expenses.');
       setExpenses((items) => [...data, ...items]);
       setForms([blankExpense()]);
+      setCustomCreator(false);
     } catch (e) { setError(e.message || 'Could not save these expenses.'); }
     finally { setSaving(false); }
   }
@@ -211,7 +213,7 @@ export default function ExpensesPage() {
     <section className="expenses-panel">
       <div className="expenses-entry-heading"><h2><Plus size={19} /> Add expenses</h2><button className="expenses-add-row" type="button" onClick={() => setForms((items) => [...items, blankExpense()])}><Plus size={16} /> Add another row</button></div>
       <form className="expenses-batch-form" onSubmit={submit}>
-        <label className="expenses-created-by" htmlFor="expense-created-by">Created by<input id="expense-created-by" required maxLength="80" list="expense-creators" value={creatorName} onChange={(e) => updateCreatorName(e.target.value)} placeholder="Type or select an admin" /><datalist id="expense-creators">{creatorOptions.map((name) => <option key={name} value={name} />)}</datalist></label>
+        <div className="expenses-created-by"><label htmlFor="expense-created-by">Created by</label>{customCreator ? <div className="expenses-new-admin"><input id="expense-created-by" required autoFocus maxLength="80" value={creatorName} onChange={(e) => updateCreatorName(e.target.value)} placeholder="Type new admin name" /><button type="button" onClick={() => { setCustomCreator(false); updateCreatorName(creatorOptions[0] || ''); }}>Choose existing</button></div> : <select id="expense-created-by" required value={creatorName} onChange={(e) => { if (e.target.value === '__new_admin__') { setCustomCreator(true); updateCreatorName(''); } else updateCreatorName(e.target.value); }}>{!creatorName && <option value="" disabled>Select an admin</option>}{creatorOptions.map((name) => <option key={name} value={name}>{name}</option>)}<option value="__new_admin__">Add new admin…</option></select>}</div>
         {forms.map((form, index) => <div className="expenses-form" key={index}>
           <label>Category<input list={`expense-categories-${index}`} maxLength="60" value={form.category} onChange={(e) => updateForm(index, 'category', e.target.value)} placeholder="Choose or enter a category" /><datalist id={`expense-categories-${index}`}>{['Supplies', 'Rent', 'Utilities', 'Transport', 'Maintenance', 'Payroll', 'Other'].map((value) => <option key={value} value={value} />)}</datalist></label>
           <label>Description<input required maxLength="160" value={form.description} onChange={(e) => updateForm(index, 'description', e.target.value)} placeholder="e.g. Detergent purchase" /></label>
