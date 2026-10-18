@@ -75,12 +75,8 @@ export default function POSSalePage() {
   function handleAdd(service) {
     const colors = colorsByService[service.serviceName] || [];
     const qty = clampQty(qtyByService[service.serviceName] || 1);
-    if (colors.length !== qty) {
-      setError(`Select exactly ${qty} color${qty === 1 ? '' : 's'} for ${qty} item${qty === 1 ? '' : 's'} of ${service.serviceName}.`);
-      return;
-    }
     setError('');
-    setCart((prev) => addToCart(prev, service, qty, colors.join(', ')));
+    setCart((prev) => addToCart(prev, service, qty, colors.slice(0, qty).join(', ')));
     setQtyByService((prev) => ({ ...prev, [service.serviceName]: 1 }));
     setColorsByService((prev) => ({ ...prev, [service.serviceName]: [] }));
   }
@@ -365,7 +361,7 @@ export default function POSSalePage() {
                   <span>{s.category}</span>
                   <span className="price">KSh {Number(s.unitPrice).toLocaleString()}</span>
                   <div className="service-color-field">
-                    <span>Item colors <strong>*</strong></span>
+                    <span>Item colors <small>(optional)</small></span>
                     <div className="service-color-dropdown">
                       <button
                         type="button"
@@ -375,7 +371,7 @@ export default function POSSalePage() {
                         aria-label={`Choose item colors for ${s.serviceName}`}
                         onClick={() => setOpenColorPicker((current) => current === s.serviceName ? '' : s.serviceName)}
                       >
-                        <span>{selectedColors.join(', ') || 'Select colors'}</span>
+                        <span>{selectedColors.join(', ') || 'Select colors (optional)'}</span>
                         <span aria-hidden="true">▾</span>
                       </button>
                       {openColorPicker === s.serviceName && (
@@ -396,7 +392,7 @@ export default function POSSalePage() {
                       )}
                     </div>
                     <small className="service-color-count" aria-live="polite">
-                      {selectedColors.length} of {quantity} colors selected
+                      Optional · {selectedColors.length} of {quantity} selected
                     </small>
                   </div>
                   <div className="qty-controls">
@@ -445,7 +441,7 @@ export default function POSSalePage() {
                 <div key={l.key} className="cart-row">
                   <div>
                     <b>{l.service}</b>
-                    <span className="cart-item-color">Colors: <b>{l.color}</b></span>
+                    {l.color && <span className="cart-item-color">Colors: <b>{l.color}</b></span>}
                     <div className="qty-controls" style={{ marginTop: 'var(--space-1)' }}>
                       <button type="button" aria-label={`Decrease ${l.service}`} onClick={() => setCart((p) => setLineQty(p, l.key, l.qty - 1))}>
                         −
