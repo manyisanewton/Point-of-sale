@@ -291,7 +291,7 @@ export default function AdminDashboard() {
                   {data.daily.map((day) => (
                     <div className="bar-item" key={day.date}>
                       <b>{day.count}</b>
-                      <span style={{ height: `${Math.max(8, (day.count / max) * 150)}px` }}></span>
+                      <span style={{ height: `${Math.max(8, (day.count / max) * 115)}px` }}></span>
                       <small>{day.label}</small>
                     </div>
                   ))}

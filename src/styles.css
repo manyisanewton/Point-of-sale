@@ -1914,7 +1914,7 @@ a.secondary:hover {
 }
 
 .dashboard-chart-card .box-title { margin-bottom: 14px; padding-bottom: 12px; }
-.dashboard-chart-card .bar-chart { height: 170px; min-height: 170px; padding: 12px; border-bottom-color: var(--border-light); }
+.dashboard-chart-card .bar-chart { box-sizing: border-box; height: 190px; min-height: 190px; padding: 8px 12px 12px; border-bottom-color: var(--border-light); }
 .dashboard-chart-card .bar-item span { max-width: 48px; background: linear-gradient(180deg, #5badd2, var(--primary)); border-radius: 7px 7px 0 0; }
 
 .dashboard-quick-card { margin: 0 0 var(--space-6); padding: 20px 22px; }
