@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Receipt, Trash2, RefreshCw, MessageCircle, X } from 'lucide-react';
+import { Plus, Receipt, Trash2, RefreshCw, MessageCircle, X, Filter, Download } from 'lucide-react';
 import './ExpensesPage.css';
 
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+const monthStart = () => `${today().slice(0, 7)}-01`;
 const money = (amount) => `KSh ${Number(amount || 0).toLocaleString('en-KE')}`;
 const BUSINESS_WHATSAPP = '254119444972';
 const blankExpense = () => ({ description: '', category: 'Supplies', amount: '', expenseDate: today() });
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
@@ -16,6 +18,8 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [filterDraft, setFilterDraft] = useState({ from: monthStart(), to: today() });
+  const [activeFilter, setActiveFilter] = useState({ from: monthStart(), to: today() });
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -35,6 +39,31 @@ export default function ExpensesPage() {
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     }).reduce((total, item) => total + Number(item.amount || 0), 0);
   }, [expenses]);
+
+  const filteredExpenses = useMemo(() => expenses.filter((item) => {
+    const expenseDate = localDate(new Date(item.expenseDate));
+    return (!activeFilter.from || expenseDate >= activeFilter.from) && (!activeFilter.to || expenseDate <= activeFilter.to);
+  }), [expenses, activeFilter]);
+
+  function downloadStatement() {
+    const escapeCsv = (value) => {
+      const safe = String(value ?? '').replace(/^[=+@-]/, "'$&");
+      return `"${safe.replaceAll('"', '""')}"`;
+    };
+    const total = filteredExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const rows = [
+      ['Date', 'Description', 'Category', 'Amount (KSh)'],
+      ...filteredExpenses.map((item) => [new Date(item.expenseDate).toLocaleDateString('en-KE'), item.description, item.category, item.amount]),
+      [], ['Total', '', '', total],
+    ];
+    const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `expenses-statement-${activeFilter.from || 'start'}-to-${activeFilter.to || 'end'}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -73,7 +102,7 @@ export default function ExpensesPage() {
 
   return <section className="expenses-page">
     <header className="expenses-heading"><div><p className="expenses-eyebrow">Business costs</p><h1>Expenses</h1><p>Record and review your laundromat expenses.</p></div><Receipt size={28} aria-hidden="true" /></header>
-    <div className="expenses-total"><span>This month</span><strong>{money(monthTotal)}</strong><small>{expenses.length} expense{expenses.length === 1 ? '' : 's'} recorded</small></div>
+    <div className="expenses-total"><div className="expenses-total-value"><span>This month</span><div className="expenses-total-amount"><strong>{money(monthTotal)}</strong></div></div><div className="expenses-total-meta"><small>{expenses.length} expense{expenses.length === 1 ? '' : 's'} recorded</small></div></div>
     <section className="expenses-panel">
       <div className="expenses-entry-heading"><h2><Plus size={19} /> Add expenses</h2><button className="expenses-add-row" type="button" onClick={() => setForms((items) => [...items, blankExpense()])}><Plus size={16} /> Add another row</button></div>
       <form className="expenses-batch-form" onSubmit={submit}>
@@ -88,8 +117,13 @@ export default function ExpensesPage() {
       </form>
     </section>
     {error && <div className="expenses-error" role="alert">{error}<button type="button" onClick={load}><RefreshCw size={15} /> Retry</button></div>}
-    <section className="expenses-panel expenses-list-panel"><div className="expenses-list-head"><h2>Expense history</h2><span>{expenses.length} total</span></div>
-      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{expenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td className="expenses-amount">{money(item.amount)}</td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
+    <section className="expenses-panel expenses-list-panel"><div className="expenses-list-head"><h2>Expense history</h2><span>{filteredExpenses.length} of {expenses.length} shown</span></div>
+      <div className="expenses-tools"><div className="expenses-filter">
+        <label>From Date<input type="date" value={filterDraft.from} onChange={(e) => setFilterDraft({ ...filterDraft, from: e.target.value })} /></label>
+        <label>To Date<input type="date" value={filterDraft.to} onChange={(e) => setFilterDraft({ ...filterDraft, to: e.target.value })} /></label>
+        <button type="button" className="expenses-tool-button" onClick={() => setActiveFilter(filterDraft)}><Filter size={16} /> Filter</button>
+      </div><button type="button" className="expenses-tool-button expenses-download" onClick={downloadStatement}><Download size={16} /> Download statement</button></div>
+      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : filteredExpenses.length === 0 ? <p className="expenses-empty">No expenses match this filter.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{filteredExpenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td className="expenses-amount">{money(item.amount)}</td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
     </section>
   </section>;
 }
