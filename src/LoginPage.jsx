@@ -128,7 +128,7 @@ export default function LoginPage() {
                     required
                     aria-required="true"
                     autoComplete="email"
-                    placeholder="admin@opendoorslaundromat.co.ke"
+                    placeholder="Enter your email"
                     disabled={loading}
                   />
                 </div>
@@ -188,12 +188,6 @@ export default function LoginPage() {
                 </button>
               )}
             </form>
-
-            <div className="login-footer">
-              <p>
-                Default admin credentials are set during setup. Contact the system administrator if needed.
-              </p>
-            </div>
           </div>
         </div>
       </div>
