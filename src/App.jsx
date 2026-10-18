@@ -14,6 +14,7 @@ import OrdersPage from './OrdersPage.jsx';
 import CustomersPage from './CustomersPage.jsx';
 import PaymentsPage from './PaymentsPage.jsx';
 import ReportsPage from './ReportsPage.jsx';
+import ExpensesPage from './ExpensesPage.jsx';
 import SettingsPage from './SettingsPage.jsx';
 import OfflinePOSPage from './OfflinePOSPage.jsx';
 import POSSalePage from './POSSalePage.jsx';
@@ -224,6 +225,11 @@ export default function App() {
         <Route path="/reports" element={
           <ProtectedRoute>
             <POSLayout><ReportsPage /></POSLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/expenses" element={
+          <ProtectedRoute>
+            <POSLayout><ExpensesPage /></POSLayout>
           </ProtectedRoute>
         } />
         <Route path="/settings" element={

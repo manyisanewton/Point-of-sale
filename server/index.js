@@ -315,6 +315,35 @@ app.get('/api/admin/dashboard', requireAdmin, async (_req, res, next) => {
   }
 });
 
+// Expense ledger
+app.get('/api/admin/expenses', requireAdmin, async (_req, res, next) => {
+  try {
+    const expenses = await prisma.expense.findMany({ orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }] });
+    res.json(expenses);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/expenses', requireAdmin, async (req, res, next) => {
+  try {
+    const description = String(req.body.description || '').trim();
+    const category = String(req.body.category || 'Other').trim();
+    const amount = Number(req.body.amount);
+    const expenseDate = req.body.expenseDate ? new Date(`${req.body.expenseDate}T12:00:00`) : new Date();
+    if (!description || description.length > 160 || !Number.isSafeInteger(amount) || amount <= 0 || Number.isNaN(expenseDate.getTime())) {
+      return res.status(400).json({ error: 'Enter a description, valid date, and positive whole-number amount.' });
+    }
+    const expense = await prisma.expense.create({ data: { description, category: category.slice(0, 60) || 'Other', amount, expenseDate } });
+    res.status(201).json(expense);
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/admin/expenses/:id', requireAdmin, async (req, res, next) => {
+  try {
+    await prisma.expense.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
 // Update site settings
 app.put('/api/admin/settings', requireAdmin, validatePricingUpdate, async (req, res, next) => {
   try {

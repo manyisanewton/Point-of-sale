@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   BarChart3,
+  Receipt,
   Home,
   LogOut,
   Menu,
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/orders', label: 'Bookings', icon: ShoppingCart },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/expenses', label: 'Expenses', icon: Receipt },
 ];
 
 function SyncBadge({ isOnline, backendDown, pendingCount }) {

@@ -171,3 +171,16 @@ model Customer {
   @@index([phone])
   @@map("customers")
 }
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  category    String   @default("Other")
+  amount      Int
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expenseDate])
+  @@map("expenses")
+}
