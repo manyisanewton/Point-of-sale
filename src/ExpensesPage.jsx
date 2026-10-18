@@ -7,6 +7,7 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const money = (amount) => `KSh ${Number(amount || 0).toLocaleString('en-KE')}`;
+const BUSINESS_WHATSAPP = '254119444972';
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
@@ -14,6 +15,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [whatsappLink, setWhatsappLink] = useState('');
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -36,6 +38,8 @@ export default function ExpensesPage() {
 
   async function submit(event) {
     event.preventDefault();
+    // Open synchronously from the submit gesture so the browser does not block the WhatsApp tab after the API call.
+    const whatsappWindow = window.open('', '_blank');
     setSaving(true); setError('');
     try {
       const res = await fetch('/api/admin/expenses', {
@@ -45,8 +49,12 @@ export default function ExpensesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not save this expense.');
       setExpenses((items) => [data, ...items]);
+      const message = `New expense recorded\nDescription: ${data.description}\nCategory: ${data.category}\nAmount: ${money(data.amount)}\nDate: ${new Date(data.expenseDate).toLocaleDateString('en-KE')}`;
+      const url = `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(message)}`;
+      setWhatsappLink(url);
+      if (whatsappWindow) whatsappWindow.location.href = url;
       setForm({ description: '', category: 'Supplies', amount: '', expenseDate: today() });
-    } catch (e) { setError(e.message || 'Could not save this expense.'); }
+    } catch (e) { if (whatsappWindow) whatsappWindow.close(); setError(e.message || 'Could not save this expense.'); }
     finally { setSaving(false); }
   }
 
@@ -73,6 +81,7 @@ export default function ExpensesPage() {
       </form>
     </section>
     {error && <div className="expenses-error" role="alert">{error}<button type="button" onClick={load}><RefreshCw size={15} /> Retry</button></div>}
+    {whatsappLink && <p className="expenses-whatsapp-note" role="status">Expense saved. WhatsApp opened with the expense details ready to send. <a href={whatsappLink} target="_blank" rel="noreferrer">Open WhatsApp</a></p>}
     <section className="expenses-panel expenses-list-panel"><div className="expenses-list-head"><h2>Expense history</h2><span>{expenses.length} total</span></div>
       {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{expenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td className="expenses-amount">{money(item.amount)}</td><td><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
     </section>
