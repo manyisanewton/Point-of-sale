@@ -8,7 +8,6 @@ import {
   CreditCard,
   BarChart3,
   Receipt,
-  Home,
   LogOut,
   Menu,
   X,
@@ -109,10 +108,6 @@ export default function POSLayout({ children }) {
         </div>
 
         <nav className="pos-nav" aria-label="POS">
-          <a className="pos-main-site-link" href="/" onClick={() => setSidebarOpen(false)}>
-            <Home size={17} aria-hidden="true" />
-            Main website
-          </a>
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
