@@ -435,6 +435,7 @@ export async function upsertServerCustomers(serverRequests) {
   const normalizePhone = (value) => String(value || '').replace(/[\s-]/g, '');
   let mirrored = 0;
   const serverRows = (serverRequests || []).filter((req) => req?.phone);
+  const serverIds = new Set(serverRows.map((req) => req.id).filter(Boolean));
   for (const req of serverRows) {
     const normalizedPhone = normalizePhone(req.phone);
     const customer = {
@@ -459,6 +460,14 @@ export async function upsertServerCustomers(serverRequests) {
       await db.customers.add(customer);
     }
     mirrored += 1;
+  }
+  // Drop stale server mirrors after a server-side reset or deletion, while
+  // keeping unsynced customers created on this device.
+  const staleServerRows = await db.customers.toArray();
+  for (const customer of staleServerRows) {
+    if (customer.externalId && !serverIds.has(customer.externalId) && customer.syncStatus !== 'pending') {
+      await db.customers.delete(customer.id);
+    }
   }
   return { mirrored };
 }
