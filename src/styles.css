@@ -1857,9 +1857,10 @@ a.secondary:hover {
 }
 
 .stat-grid article.stat-card {
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-5);
+  align-items: center;
+  gap: 14px;
+  min-height: 132px;
+  padding: 18px;
   border: 1px solid var(--border-light);
   border-radius: 14px;
   box-shadow: 0 5px 18px rgba(9, 36, 63, 0.06);
@@ -1902,7 +1903,7 @@ a.secondary:hover {
   box-shadow: 0 5px 18px rgba(9, 36, 63, 0.06);
 }
 
-.dashboard-chart-card { min-height: 315px; }
+.dashboard-chart-card { min-height: 0; padding: 20px 22px; }
 .dashboard-total-pill {
   padding: 6px 10px;
   border-radius: 999px;
@@ -1912,10 +1913,12 @@ a.secondary:hover {
   font-weight: 800;
 }
 
-.dashboard-chart-card .bar-chart { height: 205px; border-bottom-color: var(--border-light); }
+.dashboard-chart-card .box-title { margin-bottom: 14px; padding-bottom: 12px; }
+.dashboard-chart-card .bar-chart { height: 170px; min-height: 170px; padding: 12px; border-bottom-color: var(--border-light); }
 .dashboard-chart-card .bar-item span { max-width: 48px; background: linear-gradient(180deg, #5badd2, var(--primary)); border-radius: 7px 7px 0 0; }
 
-.dashboard-quick-card { margin: 0 0 var(--space-6); }
+.dashboard-quick-card { margin: 0 0 var(--space-6); padding: 20px 22px; }
+.dashboard-quick-card .box-title { margin-bottom: 12px; padding-bottom: 12px; }
 .dashboard-quick-card > button {
   display: grid;
   grid-template-columns: 36px 1fr auto;
