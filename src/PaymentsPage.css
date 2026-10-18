@@ -52,18 +52,20 @@
 .payrep-filters {
   display: grid;
   grid-template-columns: minmax(190px, 1.5fr) repeat(4, minmax(110px, 1fr)) auto;
-  gap: 10px; align-items: end;
+  gap: 12px; align-items: end;
   width: 100%;
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px 14px;
+  border-radius: 14px; padding: 14px 16px;
   margin-bottom: 16px;
   box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(18, 58, 109, .04);
 }
-.payrep-field label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: var(--ink); }
+.payrep-field { min-width:0; }
+.payrep-field label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 7px; color: var(--ink); }
 .payrep-field select,
 .payrep-date-inputs input,
 .payrep-customer-picker input {
-  width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 8px;
+  width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 9px;
   background: #fff; padding: 0 10px; font-size: 13px; color: var(--ink);
   min-width: 0;
 }
@@ -86,7 +88,7 @@
 .payrep-apply {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--blue); color: #fff; border: 1px solid var(--blue);
-  border-radius: 8px; height: 38px; padding: 0 10px; font-weight: 700; cursor: pointer;
+  border-radius: 9px; height: 40px; padding: 0 11px; font-weight: 700; cursor: pointer;
   white-space: nowrap;
 }
 .payrep-apply:disabled {
@@ -96,7 +98,7 @@
 .payrep-reset {
   display: inline-flex; align-items: center; gap: 6px;
   background: #fff; color: var(--blue); border: 1px solid var(--blue);
-  border-radius: 8px; height: 38px; padding: 0 10px; font-weight: 700; cursor: pointer;
+  border-radius: 9px; height: 40px; padding: 0 11px; font-weight: 700; cursor: pointer;
   white-space: nowrap;
 }
 .payrep-hint {
