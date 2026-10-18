@@ -329,6 +329,10 @@ async function ensureExpenseTable() {
     "updatedAt" DATETIME NOT NULL
   )`;
   await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "expenses_expenseDate_idx" ON "expenses"("expenseDate")`;
+  const columns = await prisma.$queryRaw`PRAGMA table_info("expenses")`;
+  if (!columns.some((column) => column.name === 'createdBy')) {
+    await prisma.$executeRaw`ALTER TABLE "expenses" ADD COLUMN "createdBy" TEXT NOT NULL DEFAULT 'Admin'`;
+  }
 }
 
 app.get('/api/admin/expenses', requireAdmin, async (_req, res, next) => {
@@ -350,12 +354,13 @@ app.post('/api/admin/expenses', requireAdmin, async (req, res, next) => {
       const amount = Number(entry.amount);
       const expenseDate = entry.expenseDate ? new Date(`${entry.expenseDate}T12:00:00`) : new Date();
       if (!description || description.length > 160 || !Number.isSafeInteger(amount) || amount <= 0 || Number.isNaN(expenseDate.getTime())) return null;
-      return { id: randomUUID(), description, category, amount, expenseDate, now: new Date() };
+      const emailName = String(req.adminUser?.email || '').split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+      return { id: randomUUID(), description, category, amount, expenseDate, now: new Date(), createdBy: emailName || 'Admin' };
     });
     if (normalized.some((entry) => !entry)) return res.status(400).json({ error: 'Each expense needs a description, valid date, and positive whole-number amount.' });
     const saved = await prisma.$transaction(async (tx) => {
       for (const entry of normalized) {
-        await tx.$executeRaw`INSERT INTO "expenses" ("id", "description", "category", "amount", "expenseDate", "createdAt", "updatedAt") VALUES (${entry.id}, ${entry.description}, ${entry.category}, ${entry.amount}, ${entry.expenseDate}, ${entry.now}, ${entry.now})`;
+        await tx.$executeRaw`INSERT INTO "expenses" ("id", "description", "category", "amount", "expenseDate", "createdAt", "updatedAt", "createdBy") VALUES (${entry.id}, ${entry.description}, ${entry.category}, ${entry.amount}, ${entry.expenseDate}, ${entry.now}, ${entry.now}, ${entry.createdBy})`;
       }
       return Promise.all(normalized.map(async ({ id }) => {
         const [expense] = await tx.$queryRaw`SELECT * FROM "expenses" WHERE "id" = ${id}`;

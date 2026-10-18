@@ -45,24 +45,80 @@ export default function ExpensesPage() {
     return (!activeFilter.from || expenseDate >= activeFilter.from) && (!activeFilter.to || expenseDate <= activeFilter.to);
   }), [expenses, activeFilter]);
 
-  function downloadStatement() {
-    const escapeCsv = (value) => {
-      const safe = String(value ?? '').replace(/^[=+@-]/, "'$&");
-      return `"${safe.replaceAll('"', '""')}"`;
-    };
+  async function downloadStatement() {
     const total = filteredExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const rows = [
-      ['Date', 'Description', 'Category', 'Amount (KSh)'],
-      ...filteredExpenses.map((item) => [new Date(item.expenseDate).toLocaleDateString('en-KE'), item.description, item.category, item.amount]),
-      [], ['Total', '', '', total],
-    ];
-    const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `expenses-statement-${activeFilter.from || 'start'}-to-${activeFilter.to || 'end'}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const pdfText = (value) => String(value ?? '').normalize('NFKD').replace(/[^\x20-\x7E]/g, ' ');
+    const rangeText = `${activeFilter.from || 'All dates'} to ${activeFilter.to || 'Present'}`;
+    const drawTableHeader = (y) => {
+      doc.setFillColor(237, 244, 249);
+      doc.rect(margin, y - 6, pageWidth - margin * 2, 10, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(48, 76, 101);
+      doc.text('DATE', margin + 2, y);
+      doc.text('DESCRIPTION', margin + 30, y);
+      doc.text('CATEGORY', margin + 84, y);
+      doc.text('CREATED BY', margin + 112, y);
+      doc.text('AMOUNT (KSH)', pageWidth - margin - 2, y, { align: 'right' });
+      doc.setTextColor(20, 35, 52);
+    };
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(18, 58, 109);
+    doc.text('Open Doors Laundromat', margin, 20);
+    doc.setFontSize(15);
+    doc.setTextColor(20, 35, 52);
+    doc.text('Expense Statement', margin, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(85, 101, 117);
+    doc.text(`Period: ${pdfText(rangeText)}`, margin, 38);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-KE')}`, margin, 44);
+    doc.text(`${filteredExpenses.length} expense${filteredExpenses.length === 1 ? '' : 's'}`, pageWidth - margin, 44, { align: 'right' });
+
+    let y = 57;
+    drawTableHeader(y);
+    y += 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    for (const item of filteredExpenses) {
+      const descriptionLines = doc.splitTextToSize(pdfText(item.description), 50);
+      const categoryLines = doc.splitTextToSize(pdfText(item.category), 24);
+      const creatorLines = doc.splitTextToSize(pdfText(item.createdBy || 'Admin'), 32);
+      const lineCount = Math.max(descriptionLines.length, categoryLines.length, creatorLines.length, 1);
+      const rowHeight = Math.max(10, lineCount * 4.5 + 5);
+      if (y + rowHeight > pageHeight - 25) {
+        doc.addPage();
+        y = 20;
+        drawTableHeader(y);
+        y += 10;
+      }
+      doc.setDrawColor(220, 228, 235);
+      doc.line(margin, y + rowHeight - 4, pageWidth - margin, y + rowHeight - 4);
+      doc.text(new Date(item.expenseDate).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }), margin + 2, y);
+      doc.text(descriptionLines, margin + 30, y);
+      doc.text(categoryLines, margin + 84, y);
+      doc.text(creatorLines, margin + 112, y);
+      doc.setFont('helvetica', 'bold');
+      doc.text(Number(item.amount).toLocaleString('en-KE'), pageWidth - margin - 2, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      y += rowHeight;
+    }
+    if (y > pageHeight - 24) { doc.addPage(); y = 20; }
+    doc.setFillColor(242, 246, 249);
+    doc.roundedRect(margin, y + 2, pageWidth - margin * 2, 13, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(18, 58, 109);
+    doc.text('TOTAL EXPENSES', margin + 4, y + 10.5);
+    doc.text(`KSh ${total.toLocaleString('en-KE')}`, pageWidth - margin - 4, y + 10.5, { align: 'right' });
+    doc.save(`expenses-statement-${activeFilter.from || 'start'}-to-${activeFilter.to || 'end'}.pdf`);
   }
 
   async function submit(event) {
@@ -86,7 +142,7 @@ export default function ExpensesPage() {
   }
 
   function notifyLiz(item) {
-    const message = `New expense recorded\nDescription: ${item.description}\nCategory: ${item.category}\nAmount: ${money(item.amount)}\nDate: ${new Date(item.expenseDate).toLocaleDateString('en-KE')}`;
+    const message = `New expense recorded\nDescription: ${item.description}\nCategory: ${item.category}\nAmount: ${money(item.amount)}\nDate: ${new Date(item.expenseDate).toLocaleDateString('en-KE')}\nCreated by: ${item.createdBy || 'Admin'}`;
     const url = `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
@@ -122,8 +178,8 @@ export default function ExpensesPage() {
         <label>From Date<input type="date" value={filterDraft.from} onChange={(e) => setFilterDraft({ ...filterDraft, from: e.target.value })} /></label>
         <label>To Date<input type="date" value={filterDraft.to} onChange={(e) => setFilterDraft({ ...filterDraft, to: e.target.value })} /></label>
         <button type="button" className="expenses-tool-button" onClick={() => setActiveFilter(filterDraft)}><Filter size={16} /> Filter</button>
-      </div><button type="button" className="expenses-tool-button expenses-download" onClick={downloadStatement}><Download size={16} /> Download statement</button></div>
-      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : filteredExpenses.length === 0 ? <p className="expenses-empty">No expenses match this filter.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{filteredExpenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td className="expenses-amount">{money(item.amount)}</td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
+      </div><button type="button" className="expenses-tool-button expenses-download" onClick={downloadStatement}><Download size={16} /> Download PDF statement</button></div>
+      {loading ? <p className="expenses-empty">Loading expenses…</p> : expenses.length === 0 ? <p className="expenses-empty">No expenses recorded yet.</p> : filteredExpenses.length === 0 ? <p className="expenses-empty">No expenses match this filter.</p> : <div className="expenses-table-wrap"><table className="expenses-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Created by</th><th>Amount</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{filteredExpenses.map((item) => <tr key={item.id}><td>{new Date(item.expenseDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td><td className="expenses-description">{item.description}</td><td><span className="expenses-category">{item.category}</span></td><td>{item.createdBy || 'Admin'}</td><td className="expenses-amount">{money(item.amount)}</td><td className="expenses-actions"><button className="expenses-notify" type="button" onClick={() => notifyLiz(item)}><MessageCircle size={15} /> Notify Liz</button><button className="expenses-delete" type="button" aria-label={`Delete ${item.description}`} onClick={() => removeExpense(item)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
     </section>
   </section>;
 }
