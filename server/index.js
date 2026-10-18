@@ -583,6 +583,10 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
       const location = payload.location || payload.pickupArea || '';
       const paymentMethod = payload.paymentMethod || payload.method || 'Cash';
       const mpesaPhone = payload.mpesaPhone || payload.mpesaNumber || null;
+      const paymentReference = String(payload.paymentReference || '').trim().toUpperCase();
+      if (paymentMethod === 'M-Pesa' && paymentReference && !/^[A-Z0-9]{10}$/.test(paymentReference)) {
+        return { success: false, error: 'Enter the 10-character M-Pesa transaction code.' };
+      }
       const servedBy = String(payload.servedBy || '').trim().slice(0, 80);
       const notes = payload.notes || '';
       const rawItems = payload.items || [];
@@ -608,7 +612,7 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
       let result;
       try {
         result = await bookingRepository.createBooking(
-          { name, phone, servedBy, service, location, paymentMethod, mpesaPhone, notes, allowDiscounts: true, clientKey: idempotencyKey },
+          { name, phone, servedBy, service, location, paymentMethod, paymentReference, mpesaPhone, notes, allowDiscounts: true, clientKey: idempotencyKey },
           items
         );
       } catch (error) {

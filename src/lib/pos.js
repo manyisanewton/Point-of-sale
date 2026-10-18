@@ -84,7 +84,7 @@ export function cartCount(cart) {
 }
 
 /** Build the offline order record from cart + customer + payment. */
-export function buildOfflineOrder({ cart, customerName, customerPhone = '', servedBy = '', paymentMethod = 'Cash', notes = '' }) {
+export function buildOfflineOrder({ cart, customerName, customerPhone = '', servedBy = '', paymentMethod = 'Cash', paymentReference = '', notes = '' }) {
   const total = cartTotal(cart);
   return {
     customerName: (customerName || 'Walk-in').trim() || 'Walk-in',
@@ -94,8 +94,9 @@ export function buildOfflineOrder({ cart, customerName, customerPhone = '', serv
     totalAmount: total,
     quantity: cartCount(cart),
     status: 'pending',
-    paymentStatus: paymentMethod === 'Cash' ? 'paid' : 'pending',
+    paymentStatus: paymentMethod === 'Cash' || (paymentMethod === 'M-Pesa' && Boolean(paymentReference)) ? 'paid' : 'pending',
     paymentMethod,
+    paymentReference: paymentReference || null,
     items: cart.map((l) => ({
       name: l.service,
       service: l.service,

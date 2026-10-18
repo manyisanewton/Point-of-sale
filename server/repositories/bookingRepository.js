@@ -181,7 +181,10 @@ export const bookingRepository = {
             : null,
           notes: (bookingData.notes || '').trim().slice(0, 500),
           estimatedTotal,
-          paymentStatus: bookingData.allowDiscounts && bookingData.paymentMethod === 'Cash' ? 'paid' : 'pending',
+          paymentStatus: bookingData.allowDiscounts && (
+            bookingData.paymentMethod === 'Cash' ||
+            (bookingData.paymentMethod === 'M-Pesa' && Boolean(bookingData.paymentReference))
+          ) ? 'paid' : 'pending',
           status: 'new',
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),
@@ -190,6 +193,7 @@ export const bookingRepository = {
       await tx.$executeRaw`
         UPDATE "booking_requests"
         SET "servedBy" = ${bookingData.servedBy || null},
+            "paymentReference" = ${bookingData.paymentReference || null},
             "clientKey" = ${bookingData.clientKey || null}
         WHERE "id" = ${request.id}
       `;

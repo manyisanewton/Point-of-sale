@@ -41,7 +41,7 @@ export default function POSSalePage() {
   const [customerPhone, setCustomerPhone] = useState(location.state?.customerPhone || '');
   const [servedBy, setServedBy] = useState(location.state?.servedBy || '');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [mpesaReference, setMpesaReference] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -122,8 +122,8 @@ export default function POSSalePage() {
       setError('That phone number does not look valid.');
       return;
     }
-    if (paymentMethod === 'M-Pesa' && !KENYAN_PHONE.test(mpesaPhone.replace(/[\s-]/g, ''))) {
-      setError('Enter a valid Kenyan M-Pesa number (e.g. 0712 345 678).');
+    if (paymentMethod === 'M-Pesa' && !/^[A-Z0-9]{10}$/i.test(mpesaReference.trim())) {
+      setError('Enter the 10-character M-Pesa transaction code from the payment message.');
       return;
     }
     setBusy(true);
@@ -140,12 +140,21 @@ export default function POSSalePage() {
           // Non-fatal: the order itself is what must persist.
         }
       }
-      const order = buildOfflineOrder({ cart, customerName: name, customerPhone: phone, servedBy: attendant, paymentMethod, notes: notes.trim() });
+      const normalizedPaymentReference = paymentMethod === 'M-Pesa' ? mpesaReference.trim().toUpperCase() : '';
+      const order = buildOfflineOrder({
+        cart,
+        customerName: name,
+        customerPhone: phone,
+        servedBy: attendant,
+        paymentMethod,
+        paymentReference: normalizedPaymentReference,
+        notes: notes.trim(),
+      });
       const payment = {
         orderId: null, // linked to the local order row below
         amount: total,
         method: paymentMethod,
-        reference: `${paymentMethod.toUpperCase().slice(0, 4)}-${Date.now()}`,
+        reference: normalizedPaymentReference || `${paymentMethod.toUpperCase().slice(0, 4)}-${Date.now()}`,
         createdAt: new Date().toISOString(),
       };
       // Atomic: order + payment + outbox entries commit together.
@@ -285,7 +294,7 @@ export default function POSSalePage() {
                 setCustomerName('');
                 setCustomerPhone('');
                 setServedBy('');
-                setMpesaPhone('');
+                setMpesaReference('');
                 setNotes('');
               }}
             >
@@ -554,7 +563,10 @@ export default function POSSalePage() {
           </div>
           <div className="sale-field">
             <label htmlFor="sale-payment">Payment method</label>
-            <select id="sale-payment" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+            <select id="sale-payment" value={paymentMethod} onChange={(e) => {
+              setPaymentMethod(e.target.value);
+              setError('');
+            }}>
               <option value="Cash">Cash{offline ? ' (works offline)' : ''}</option>
               <option value="M-Pesa">M-Pesa{offline ? ' (queued, confirmed when online)' : ''}</option>
               <option value="Unpaid">Unpaid</option>
@@ -566,10 +578,15 @@ export default function POSSalePage() {
               <input
                 id="sale-mpesa"
                 type="tel"
-                placeholder="0712 345 678"
-                value={mpesaPhone}
-                onChange={(e) => setMpesaPhone(e.target.value)}
+                placeholder="e.g. QAB12CDE34"
+                value={mpesaReference}
+                onChange={(e) => setMpesaReference(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
                 autoComplete="off"
+                autoCapitalize="characters"
+                minLength={10}
+                maxLength={10}
+                pattern="[A-Z0-9]{10}"
+                required
               />
             </div>
           )}
@@ -585,8 +602,17 @@ export default function POSSalePage() {
           </div>
 
           <div className="sale-actions">
-            <button type="button" className="btn-primary" onClick={handleComplete} disabled={busy || cart.length === 0}>
-              {busy ? 'Saving…' : `Complete sale · KSh ${total.toLocaleString()}`}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleComplete}
+              disabled={busy || cart.length === 0 || (paymentMethod === 'M-Pesa' && !/^[A-Z0-9]{10}$/i.test(mpesaReference.trim()))}
+            >
+              {busy
+                ? 'Recording…'
+                : paymentMethod === 'Unpaid'
+                  ? `Complete sale · KSh ${total.toLocaleString()}`
+                  : `Record ${paymentMethod} payment · KSh ${total.toLocaleString()}`}
             </button>
           </div>
         </section>
