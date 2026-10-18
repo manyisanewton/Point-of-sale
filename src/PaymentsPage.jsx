@@ -227,19 +227,20 @@ export default function PaymentsPage() {
   const groups = useMemo(() => {
     const map = new Map();
     for (const l of filtered) {
-      if (!map.has(l.customer)) map.set(l.customer, []);
-      map.get(l.customer).push(l);
+      const key = customerGroupKey(l);
+      if (!map.has(key)) map.set(key, { customer: customers.find((item) => item.key === key)?.label || l.customer, rows: [] });
+      map.get(key).rows.push(l);
     }
-    return [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([customer, rows], i) => ({
+    return [...map.values()]
+      .sort((a, b) => a.customer.localeCompare(b.customer))
+      .map(({ customer, rows }, i) => ({
         no: i + 1,
         customer,
         rows: rows.sort((a, b) => String(a.date).localeCompare(String(b.date))),
         qty: rows.reduce((s, r) => s + r.qty, 0),
         amount: rows.reduce((s, r) => s + r.amount, 0),
       }));
-  }, [filtered]);
+  }, [filtered, customers]);
 
   const totalCollected = filtered.filter((l) => l.paymentStatus === 'paid').reduce((s, l) => s + l.amount, 0);
   const totalPending = filtered.filter((l) => l.paymentStatus !== 'paid').reduce((s, l) => s + l.amount, 0);
