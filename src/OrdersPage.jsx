@@ -17,14 +17,23 @@ const STATUSES = [
   { value: 'drying', label: 'Drying' },
   { value: 'ironing', label: 'Ironing' },
   { value: 'ready_for_collection', label: 'Ready for collection' },
+  { value: 'completed', label: 'Done' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+const STATUS_ORDER = ['received', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed'];
 const ITEM_COLORS = ['White', 'Black', 'Grey', 'Blue', 'Red', 'Green', 'Yellow', 'Orange', 'Pink', 'Purple', 'Brown', 'Cream', 'Multicolour'];
 
-function bookingStatus(status) {
+function bookingStatus(status, paymentStatus) {
   if (['new', 'pending', 'confirmed'].includes(status)) return 'received';
-  if (status === 'completed') return 'ready_for_collection';
+  if (status === 'completed' || (status === 'ready_for_collection' && paymentStatus === 'paid')) return 'completed';
   return status || 'received';
+}
+
+function canAdvanceStatus(currentStatus, nextStatus) {
+  if (currentStatus === nextStatus) return true;
+  if (['completed', 'cancelled'].includes(currentStatus)) return false;
+  if (nextStatus === 'cancelled') return true;
+  return STATUS_ORDER.indexOf(nextStatus) === STATUS_ORDER.indexOf(currentStatus) + 1;
 }
 
 function whatsappUrl(booking) {
@@ -88,7 +97,7 @@ export default function OrdersPage() {
 
   const filtered = filter === 'all'
     ? orders
-    : orders.filter((o) => bookingStatus(o.status) === filter);
+    : orders.filter((o) => bookingStatus(o.status, o.paymentStatus) === filter);
 
   async function saveStatus(order, status) {
     setNotice('');
@@ -125,8 +134,13 @@ export default function OrdersPage() {
   }
 
   async function handleStatusChange(order, status) {
+    const currentStatus = bookingStatus(order.status, order.paymentStatus);
+    if (!canAdvanceStatus(currentStatus, status)) {
+      setNotice('Booking statuses can only move forward. Done and Cancelled bookings are final.');
+      return;
+    }
     if (status === 'ready_for_collection') {
-      if (bookingStatus(order.status) === 'ready_for_collection') return;
+      if (currentStatus === 'ready_for_collection' || currentStatus === 'completed') return;
       setConfirmingReady(order);
       return;
     }
@@ -250,7 +264,7 @@ export default function OrdersPage() {
 
   async function confirmReadyForCollection() {
     if (!confirmingReady || readyConfirmationInFlight.current) return;
-    if (bookingStatus(confirmingReady.status) === 'ready_for_collection') {
+    if (['ready_for_collection', 'completed'].includes(bookingStatus(confirmingReady.status, confirmingReady.paymentStatus))) {
       setConfirmingReady(null);
       return;
     }
@@ -265,9 +279,12 @@ export default function OrdersPage() {
         setPaymentMethod(readyBooking.paymentMethod === 'M-Pesa' ? 'M-Pesa' : 'Cash');
         setPaymentReference(readyBooking.paymentReference || '');
         setConfirmingReady(null);
-        setNotice(chatUrl
-          ? 'Booking marked ready. WhatsApp opened with the collection message; press Send in WhatsApp to notify the customer.'
-          : 'Booking marked ready, but no customer phone number is recorded.');
+        const isDone = bookingStatus(readyBooking.status, readyBooking.paymentStatus) === 'completed';
+        setNotice(isDone
+          ? 'Booking marked done because payment was already recorded.'
+          : chatUrl
+            ? 'Booking marked ready. WhatsApp opened with the collection message; press Send in WhatsApp to notify the customer.'
+            : 'Booking marked ready, but no customer phone number is recorded.');
       }
     } finally {
       readyConfirmationInFlight.current = false;
@@ -297,7 +314,9 @@ export default function OrdersPage() {
       refresh();
       setSelectedBooking((current) => ({ ...current, ...result }));
       setPrintPromptBooking({ ...selectedBooking, ...result });
-      setNotice('Payment recorded. You can now print the receipt.');
+      setNotice(result.status === 'completed'
+        ? 'Payment recorded and booking marked done. You can now print the receipt.'
+        : 'Payment recorded. You can now print the receipt.');
     } catch (error) {
       setPaymentError(error.message || 'Could not record payment.');
     } finally {
@@ -382,7 +401,17 @@ export default function OrdersPage() {
               <tbody>
                 {filtered.map((order) => {
                   const items = order.items || [];
-                  const status = bookingStatus(order.status);
+                  const status = bookingStatus(order.status, order.paymentStatus);
+                  const statusIndex = STATUS_ORDER.indexOf(status);
+                  const statusOptions = ['completed', 'cancelled'].includes(status)
+                    ? [{ value: status, label: STATUSES.find((entry) => entry.value === status)?.label || status }]
+                    : [
+                        ...STATUS_ORDER.slice(Math.max(0, statusIndex), Math.max(0, statusIndex) + 2).filter((value) => value !== 'completed').map((value) => ({
+                          value,
+                          label: STATUSES.find((entry) => entry.value === value)?.label || value,
+                        })),
+                        { value: 'cancelled', label: 'Cancelled' },
+                      ];
                   const service = order.service || items.map((item) => item.service || item.name).filter(Boolean).join(', ') || 'Laundry service';
 
                   return (
@@ -408,14 +437,9 @@ export default function OrdersPage() {
                           value={status}
                           onChange={(e) => handleStatusChange(order, e.target.value)}
                           aria-label={`Booking status for ${order.receiptNumber || order.id}`}
-                          disabled={savingStatus}
+                          disabled={savingStatus || ['completed', 'cancelled'].includes(status)}
                         >
-                          <option value="received">Received</option>
-                          <option value="washing">Washing</option>
-                          <option value="drying">Drying</option>
-                          <option value="ironing">Ironing</option>
-                          <option value="ready_for_collection">Ready for collection</option>
-                          <option value="cancelled">Cancelled</option>
+                          {statusOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                         </select>
                       </td>
                     </tr>
@@ -525,7 +549,7 @@ export default function OrdersPage() {
               <div><dt>Contact number</dt><dd>{selectedBooking.phone || selectedBooking.customerPhone || '—'}</dd></div>
               <div><dt>Served By</dt><dd>{selectedBooking.servedBy || selectedBooking.attendant || '—'}</dd></div>
               <div><dt>Pickup area</dt><dd>{selectedBooking.location || '—'}</dd></div>
-              <div><dt>Booking status</dt><dd>{STATUSES.find((status) => status.value === bookingStatus(selectedBooking.status))?.label || selectedBooking.status}</dd></div>
+              <div><dt>Booking status</dt><dd>{STATUSES.find((status) => status.value === bookingStatus(selectedBooking.status, selectedBooking.paymentStatus))?.label || selectedBooking.status}</dd></div>
               {selectedBooking.notes && <div><dt>Notes</dt><dd>{selectedBooking.notes}</dd></div>}
             </dl>
             <div className="booking-details-items-wrap">

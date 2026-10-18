@@ -1,6 +1,20 @@
 import { prisma } from '../db/client.js';
 import { generateReceiptToken, generateReceiptNumber, getTodayDateKey } from '../services/receiptService.js';
 
+const BOOKING_STATUS_ORDER = ['received', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed'];
+
+function normalizedBookingStatus(status, paymentStatus) {
+  if (['new', 'pending', 'confirmed', null, undefined, ''].includes(status)) return 'received';
+  if (status === 'ready_for_collection' && paymentStatus === 'paid') return 'completed';
+  return status;
+}
+
+function statusConflict(message) {
+  const error = new Error(message);
+  error.status = 409;
+  return error;
+}
+
 async function ensureBookingItemDiscountColumns() {
   const columns = await prisma.$queryRaw`PRAGMA table_info("booking_items")`;
   const columnNames = new Set(columns.map((column) => column.name));
@@ -394,7 +408,34 @@ export const bookingRepository = {
     if (!allowedStatuses.includes(status)) {
       throw new Error(`Invalid status: ${status}`);
     }
-    await prisma.bookingRequest.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    const existing = await prisma.bookingRequest.findUnique({ where: { id } });
+    if (!existing) return null;
+    if (existing.status === status && !(status === 'ready_for_collection' && existing.paymentStatus === 'paid')) {
+      return this.getBookingById(id);
+    }
+    if (existing.status === 'ready_for_collection' && existing.paymentStatus === 'paid' && status === 'ready_for_collection') {
+      await prisma.bookingRequest.update({ where: { id }, data: { status: 'completed', updatedAt: new Date() } });
+      return this.getBookingById(id);
+    }
+
+    const currentStatus = normalizedBookingStatus(existing.status, existing.paymentStatus);
+    if (['completed', 'cancelled'].includes(currentStatus)) {
+      throw statusConflict('Done and Cancelled bookings cannot be changed.');
+    }
+    if (status === 'completed' && !(existing.status === 'ready_for_collection' && existing.paymentStatus === 'paid')) {
+      throw statusConflict('A booking can only be marked done after it is ready and payment is recorded.');
+    }
+    if (status !== 'cancelled') {
+      const currentIndex = BOOKING_STATUS_ORDER.indexOf(currentStatus);
+      const nextIndex = BOOKING_STATUS_ORDER.indexOf(status);
+      if (nextIndex < 0 || nextIndex !== currentIndex + 1) {
+        throw statusConflict('Booking statuses must move forward one step at a time.');
+      }
+    }
+    const nextStatus = status === 'ready_for_collection' && existing.paymentStatus === 'paid'
+      ? 'completed'
+      : status;
+    await prisma.bookingRequest.update({ where: { id }, data: { status: nextStatus, updatedAt: new Date() } });
     return this.getBookingById(id);
   },
 
@@ -431,12 +472,15 @@ export const bookingRepository = {
     await ensureBookingServedByColumn();
     const existing = await prisma.bookingRequest.findUnique({ where: { id } });
     if (!existing) return null;
-    if (existing.paymentStatus === 'paid') return this.getBookingById(id);
+    if (existing.status === 'cancelled') throw statusConflict('Payment cannot be recorded for a cancelled booking.');
+    if (existing.paymentStatus === 'paid' && existing.status !== 'ready_for_collection') return this.getBookingById(id);
+    const nextStatus = existing.status === 'ready_for_collection' ? 'completed' : existing.status;
     await prisma.$executeRaw`
       UPDATE "booking_requests"
       SET "paymentStatus" = 'paid',
           "paymentMethod" = ${method},
           "paymentReference" = ${reference || null},
+          "status" = ${nextStatus},
           "updatedAt" = ${new Date().toISOString()}
       WHERE "id" = ${id}
     `;

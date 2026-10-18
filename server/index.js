@@ -439,11 +439,8 @@ app.patch('/api/admin/requests/:id', requireAdmin, validateStatusUpdate, async (
       return res.status(404).json({ error: 'Request not found.' });
     }
 
-    if (request.status === status) {
-      return res.json(request);
-    }
-    
     const updatedRequest = await bookingRepository.updateBookingStatus(id, status);
+    if (!updatedRequest) return res.status(404).json({ error: 'Request not found.' });
     res.json(updatedRequest);
   } catch (error) {
     next(error);
