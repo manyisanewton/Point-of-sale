@@ -235,7 +235,6 @@ export default function AdminDashboard() {
           <div>
             <p className="eyebrow">{todayLabel}</p>
             <h1>{tab === 'overview' ? 'Good day, Open Doors' : tab[0].toUpperCase() + tab.slice(1)}</h1>
-            {tab === 'overview' && <p className="dash-subtitle">Here is how your laundromat is doing today.</p>}
           </div>
           {tab === 'overview' && (
             <button className="dash-new-order" type="button" onClick={() => navigate('/new-order')}>
