@@ -36,6 +36,10 @@ export default function ExpensesPage() {
       const loaded = await res.json();
       setExpenses(loaded);
       setCreatorName((current) => {
+        if (loaded.length === 0) {
+          try { localStorage.removeItem('expense-created-by'); } catch { /* Storage may be unavailable. */ }
+          return '';
+        }
         if (current || !loaded[0]?.createdBy) return current;
         try { localStorage.setItem('expense-created-by', loaded[0].createdBy); } catch { /* Storage may be unavailable. */ }
         return loaded[0].createdBy;
